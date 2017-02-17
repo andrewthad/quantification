@@ -1,21 +1,29 @@
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ExistentialQuantification #-}
 module Data.Exists where
 
 import Data.Proxy (Proxy)
 import Data.Type.Equality ((:~:)(Refl))
 import Control.Applicative (Const(..))
-import Data.Aeson (ToJSON(..),FromJSON(..))
+import Data.Aeson (ToJSON(..),FromJSON(..),ToJSONKey(..),FromJSONKey(..),
+  ToJSONKeyFunction(..),FromJSONKeyFunction(..))
 import Data.Hashable (Hashable(..))
+import Data.Text (Text)
 import qualified Data.Aeson.Types as Aeson
+import qualified Data.Aeson.Encoding as Aeson
 import qualified Text.Read as R
 import qualified Text.Read.Lex as R
 
 data Exists (f :: k -> *) = forall a. Exists (f a)
 data Exists2 (f :: k -> j -> *) = forall a b. Exists2 (f a b)
 data Exists3 (f :: k -> j -> l -> *) = forall a b c. Exists3 (f a b c)
+
+data ToJSONKeyFunctionForall f
+  = ToJSONKeyTextForall !(forall a. f a -> Text) !(forall a. f a -> Aeson.Encoding' Text)
+  | ToJSONKeyValueForall !(forall a. f a -> Aeson.Value) !(forall a. f a -> Aeson.Encoding)
 
 class EqForall f where
   eqForall :: f a -> f a -> Bool
@@ -43,6 +51,12 @@ class EqForallPoly2 f where
 
 class HashableForall f where
   hashWithSaltForall :: Int -> f a -> Int
+
+class ToJSONKeyForall f where
+  toJSONKeyForall :: ToJSONKeyFunctionForall f
+
+class FromJSONKeyForall f where
+  fromJSONKeyForall :: FromJSONKeyFunction (Exists f)
 
 class ToJSONForall f where
   toJSONForall :: f a -> Aeson.Value
@@ -92,7 +106,15 @@ instance Hashable a => HashableForall (Const a) where
   hashWithSaltForall s (Const a) = hashWithSalt s a
 
 
+-- I need to get rid of the ToJSONForall and FromJSONForall constraints
+-- on these two instances.
+instance (ToJSONKeyForall f, ToJSONForall f) => ToJSONKey (Exists f) where
+  toJSONKey = case toJSONKeyForall of
+    ToJSONKeyTextForall t e -> ToJSONKeyText (\(Exists a) -> t a) (\(Exists a) -> e a)
+    ToJSONKeyValueForall v e -> ToJSONKeyValue (\x -> case x of Exists a -> v a) (\(Exists a) -> e a)
 
+instance (FromJSONKeyForall f, FromJSONForall f) => FromJSONKey (Exists f) where
+  fromJSONKey = fromJSONKeyForall
 
 instance EqForallPoly f => Eq (Exists f) where
   Exists a == Exists b = eqForallPoly a b
