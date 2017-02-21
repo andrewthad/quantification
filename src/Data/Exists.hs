@@ -64,6 +64,13 @@ class ToJSONForall f where
 class FromJSONForall f where
   parseJSONForall :: Aeson.Value -> Aeson.Parser (Exists f)
 
+class EnumForall f where
+  toEnumForall :: Int -> Exists f
+  fromEnumForall :: f a -> Int
+
+class BoundedForall f where
+  minBoundForall :: Exists f
+  maxBoundForall :: Exists f
 
 --------------------
 -- Instances Below
@@ -141,3 +148,11 @@ instance ReadForall f => Read (Exists f) where
     R.Ident "Exists" <- R.lexP
     R.step readPrecForall
     
+instance EnumForall f => Enum (Exists f) where
+  fromEnum (Exists x) = fromEnumForall x
+  toEnum = toEnumForall
+
+instance BoundedForall f => Bounded (Exists f) where
+  minBound = minBoundForall
+  maxBound = maxBoundForall
+
