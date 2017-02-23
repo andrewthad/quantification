@@ -3,27 +3,34 @@
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE CPP #-}
 module Data.Exists where
 
 import Data.Proxy (Proxy)
 import Data.Type.Equality ((:~:)(Refl))
 import Control.Applicative (Const(..))
-import Data.Aeson (ToJSON(..),FromJSON(..),ToJSONKey(..),FromJSONKey(..),
-  ToJSONKeyFunction(..),FromJSONKeyFunction(..))
+import Data.Aeson (ToJSON(..),FromJSON(..))
 import Data.Hashable (Hashable(..))
 import Data.Text (Text)
 import qualified Data.Aeson.Types as Aeson
-import qualified Data.Aeson.Encoding as Aeson
 import qualified Text.Read as R
 import qualified Text.Read.Lex as R
+
+#if MIN_VERSION_aeson(1,0,0) 
+import qualified Data.Aeson.Encoding as Aeson
+import Data.Aeson (ToJSONKey(..),FromJSONKey(..),
+  ToJSONKeyFunction(..),FromJSONKeyFunction(..))
+#endif
 
 data Exists (f :: k -> *) = forall a. Exists (f a)
 data Exists2 (f :: k -> j -> *) = forall a b. Exists2 (f a b)
 data Exists3 (f :: k -> j -> l -> *) = forall a b c. Exists3 (f a b c)
 
+#if MIN_VERSION_aeson(1,0,0) 
 data ToJSONKeyFunctionForall f
   = ToJSONKeyTextForall !(forall a. f a -> Text) !(forall a. f a -> Aeson.Encoding' Text)
   | ToJSONKeyValueForall !(forall a. f a -> Aeson.Value) !(forall a. f a -> Aeson.Encoding)
+#endif
 
 class EqForall f where
   eqForall :: f a -> f a -> Bool
@@ -52,11 +59,13 @@ class EqForallPoly2 f where
 class HashableForall f where
   hashWithSaltForall :: Int -> f a -> Int
 
+#if MIN_VERSION_aeson(1,0,0) 
 class ToJSONKeyForall f where
   toJSONKeyForall :: ToJSONKeyFunctionForall f
 
 class FromJSONKeyForall f where
   fromJSONKeyForall :: FromJSONKeyFunction (Exists f)
+#endif
 
 class ToJSONForall f where
   toJSONForall :: f a -> Aeson.Value
@@ -113,6 +122,7 @@ instance Hashable a => HashableForall (Const a) where
   hashWithSaltForall s (Const a) = hashWithSalt s a
 
 
+#if MIN_VERSION_aeson(1,0,0) 
 -- I need to get rid of the ToJSONForall and FromJSONForall constraints
 -- on these two instances.
 instance (ToJSONKeyForall f, ToJSONForall f) => ToJSONKey (Exists f) where
@@ -122,6 +132,7 @@ instance (ToJSONKeyForall f, ToJSONForall f) => ToJSONKey (Exists f) where
 
 instance (FromJSONKeyForall f, FromJSONForall f) => FromJSONKey (Exists f) where
   fromJSONKey = fromJSONKeyForall
+#endif
 
 instance EqForallPoly f => Eq (Exists f) where
   Exists a == Exists b = eqForallPoly a b
