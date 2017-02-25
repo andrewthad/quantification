@@ -47,6 +47,12 @@ class (OrdForall f, EqForallPoly f) => OrdForallPoly f where
 class ShowForall f where
   showsPrecForall :: Int -> f a -> ShowS
 
+showsForall :: ShowForall f => f a -> ShowS
+showsForall = showsPrecForall 0
+
+showForall :: ShowForall f => f a -> String
+showForall x = showsForall x ""
+
 class ReadForall f where
   readPrecForall :: R.ReadPrec (Exists f)
 
