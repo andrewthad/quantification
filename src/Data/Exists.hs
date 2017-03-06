@@ -24,9 +24,9 @@ import Data.Aeson (ToJSONKey(..),FromJSONKey(..),
 
 -- newtype Exists (f :: k -> *) = Exists { runExists :: forall r. (forall a. f a -> r) -> r }
 
-data Exists (f :: k -> *) = forall a. Exists (!(f a))
-data Exists2 (f :: k -> j -> *) = forall a b. Exists2 (!(f a b))
-data Exists3 (f :: k -> j -> l -> *) = forall a b c. Exists3 (!(f a b c))
+data Exists (f :: k -> *) = forall a. Exists !(f a)
+data Exists2 (f :: k -> j -> *) = forall a b. Exists2 !(f a b)
+data Exists3 (f :: k -> j -> l -> *) = forall a b c. Exists3 !(f a b c)
 
 #if MIN_VERSION_aeson(1,0,0) 
 data ToJSONKeyFunctionForall f
