@@ -15,6 +15,7 @@ import Data.Text (Text)
 import qualified Data.Aeson.Types as Aeson
 import qualified Text.Read as R
 import qualified Text.Read.Lex as R
+import qualified Web.PathPieces as PP
 
 #if MIN_VERSION_aeson(1,0,0) 
 import qualified Data.Aeson.Encoding as Aeson
@@ -88,6 +89,10 @@ class EnumForall f where
 class BoundedForall f where
   minBoundForall :: Exists f
   maxBoundForall :: Exists f
+
+class PathPieceForall f where
+  fromPathPieceForall :: Text -> Maybe (Exists f)
+  toPathPieceForall :: f a -> Text
 
 --------------------
 -- Instances Below
@@ -174,4 +179,10 @@ instance EnumForall f => Enum (Exists f) where
 instance BoundedForall f => Bounded (Exists f) where
   minBound = minBoundForall
   maxBound = maxBoundForall
+
+instance PathPieceForall f => PP.PathPiece (Exists f) where
+  toPathPiece (Exists f) = toPathPieceForall f
+  fromPathPiece = fromPathPieceForall
+
+
 
