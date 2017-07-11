@@ -31,6 +31,8 @@ module Data.Exists
   , MonoidForall(..)
   , HashableForall(..)
   , PathPieceForall(..)
+  , FromJSONForall(..)
+  , ToJSONForall(..)
 #if MIN_VERSION_aeson(1,0,0) 
   , ToJSONKeyForall(..)
   , FromJSONKeyForall(..)
