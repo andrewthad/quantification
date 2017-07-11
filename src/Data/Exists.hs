@@ -7,7 +7,41 @@
 
 {-# OPTIONS_GHC -Wall #-}
 
-module Data.Exists where
+{-| Data types and type classes for working with existentially quantified
+    values. In the event that Quantified Class Constraints ever land in GHC,
+    this package will be considered obsolete. The benefit that most of the
+    typeclasses in this module provide is that they help populate the instances
+    of 'Exists'.
+-}
+
+module Data.Exists
+  ( -- * Data Types
+    Exists(..)
+  , Exists2(..)
+  , Exists3(..)
+    -- * Type Classes
+  , EqForall(..)
+  , EqForallPoly(..)
+  , OrdForall(..)
+  , OrdForallPoly(..)
+  , ShowForall(..)
+  , ReadForall(..)
+  , EnumForall(..)
+  , BoundedForall(..)
+  , MonoidForall(..)
+  , HashableForall(..)
+  , PathPieceForall(..)
+#if MIN_VERSION_aeson(1,0,0) 
+  , ToJSONKeyForall(..)
+  , FromJSONKeyForall(..)
+#endif
+    -- * Higher Rank Classes
+  , EqForall2(..)
+  , EqForallPoly2(..)
+    -- * Functions
+  , showsForall
+  , showForall
+  ) where
 
 import Data.Proxy (Proxy(..))
 import Data.Type.Equality ((:~:)(Refl))
@@ -30,8 +64,11 @@ import Data.Aeson (ToJSONKey(..),FromJSONKey(..),
 
 -- newtype Exists (f :: k -> *) = Exists { runExists :: forall r. (forall a. f a -> r) -> r }
 
+-- | Hide a type parameter.
 data Exists (f :: k -> *) = forall a. Exists !(f a)
+
 data Exists2 (f :: k -> j -> *) = forall a b. Exists2 !(f a b)
+
 data Exists3 (f :: k -> j -> l -> *) = forall a b c. Exists3 !(f a b c)
 
 #if MIN_VERSION_aeson(1,0,0) 
