@@ -6,12 +6,13 @@
 {-# LANGUAGE CPP #-}
 module Data.Exists where
 
-import Data.Proxy (Proxy)
+import Data.Proxy (Proxy(..))
 import Data.Type.Equality ((:~:)(Refl))
 import Control.Applicative (Const(..))
 import Data.Aeson (ToJSON(..),FromJSON(..))
 import Data.Hashable (Hashable(..))
 import Data.Text (Text)
+import Data.Functor.Product (Product(..))
 import qualified Data.Aeson.Types as Aeson
 import qualified Text.Read as R
 import qualified Text.Read.Lex as R
@@ -94,6 +95,10 @@ class PathPieceForall f where
   fromPathPieceForall :: Text -> Maybe (Exists f)
   toPathPieceForall :: f a -> Text
 
+class MonoidForall f where
+  memptyForall :: f a
+  mappendForall :: f a -> f a -> f a
+
 --------------------
 -- Instances Below
 --------------------
@@ -110,6 +115,9 @@ instance ShowForall Proxy where
 instance ReadForall Proxy where
   readPrecForall = fmap Exists R.readPrec 
 
+instance MonoidForall Proxy where
+  memptyForall = Proxy
+  mappendForall _ _ = Proxy 
 
 instance EqForall ((:~:) a) where
   eqForall Refl Refl = True
@@ -184,5 +192,20 @@ instance PathPieceForall f => PP.PathPiece (Exists f) where
   toPathPiece (Exists f) = toPathPieceForall f
   fromPathPiece = fromPathPieceForall
 
+instance (EqForall f, EqForall g) => EqForall (Product f g) where
+  eqForall (Pair f1 g1) (Pair f2 g2) = eqForall f1 f2 && eqForall g1 g2
 
+instance (EqForallPoly f, EqForallPoly g) => EqForallPoly (Product f g) where
+  eqForallPoly (Pair f1 g1) (Pair f2 g2) = eqForallPoly f1 f2 && eqForallPoly g1 g2
+
+instance (OrdForall f, OrdForall g) => OrdForall (Product f g) where
+  compareForall (Pair f1 g1) (Pair f2 g2) = mappend (compareForall f1 f2) (compareForall g1 g2)
+
+instance (OrdForallPoly f, OrdForallPoly g) => OrdForallPoly (Product f g) where
+  compareForallPoly (Pair f1 g1) (Pair f2 g2) = mappend (compareForallPoly f1 f2) (compareForallPoly g1 g2)
+
+instance (ShowForall f, ShowForall g) => ShowForall (Product f g) where
+  showsPrecForall p (Pair f g) = showParen 
+    (p >= 11) 
+    (showString "Pair " . showsPrecForall 11 f . showChar ' ' . showsPrecForall 11 g)
 
