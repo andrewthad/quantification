@@ -4,6 +4,9 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE CPP #-}
+
+{-# OPTIONS_GHC -Wall #-}
+
 module Data.Exists where
 
 import Data.Proxy (Proxy(..))
@@ -12,10 +15,11 @@ import Control.Applicative (Const(..))
 import Data.Aeson (ToJSON(..),FromJSON(..))
 import Data.Hashable (Hashable(..))
 import Data.Text (Text)
+import Data.Functor.Sum (Sum(..))
 import Data.Functor.Product (Product(..))
+import Data.Functor.Compose (Compose(..))
 import qualified Data.Aeson.Types as Aeson
 import qualified Text.Read as R
-import qualified Text.Read.Lex as R
 import qualified Web.PathPieces as PP
 
 #if MIN_VERSION_aeson(1,0,0) 
@@ -208,4 +212,23 @@ instance (ShowForall f, ShowForall g) => ShowForall (Product f g) where
   showsPrecForall p (Pair f g) = showParen 
     (p >= 11) 
     (showString "Pair " . showsPrecForall 11 f . showChar ' ' . showsPrecForall 11 g)
+
+instance (EqForall f) => EqForall (Compose f g) where
+  eqForall (Compose x) (Compose y) = eqForall x y
+
+instance (EqForallPoly f) => EqForallPoly (Compose f g) where
+  eqForallPoly (Compose x) (Compose y) = eqForallPoly x y
+
+instance (EqForall f, EqForall g) => EqForall (Sum f g) where
+  eqForall (InL f1) (InL f2) = eqForall f1 f2
+  eqForall (InR f1) (InR f2) = eqForall f1 f2
+  eqForall (InR _) (InL _) = False
+  eqForall (InL _) (InR _) = False
+
+instance (OrdForall f, OrdForall g) => OrdForall (Sum f g) where
+  compareForall (InL f1) (InL f2) = compareForall f1 f2
+  compareForall (InR f1) (InR f2) = compareForall f1 f2
+  compareForall (InR _) (InL _) = GT
+  compareForall (InL _) (InR _) = LT
+
 
