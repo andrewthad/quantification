@@ -46,6 +46,8 @@ module Data.Exists
     -- * Functions
   , showsForall
   , showForall
+  , defaultEqForallPoly
+  , defaultCompareForallPoly
   ) where
 
 import Data.Proxy (Proxy(..))
@@ -93,9 +95,7 @@ class EqForall f => OrdForall f where
 class EqForall f => EqForallPoly f where
   eqForallPoly :: f a -> f b -> Bool
   default eqForallPoly :: TestEquality f => f a -> f b -> Bool
-  eqForallPoly x y = case testEquality x y of
-    Nothing -> False
-    Just Refl -> eqForall x y
+  eqForallPoly = defaultEqForallPoly
 
 -- the default method does not work if your data type is a newtype wrapper
 -- over a function, but that should not really ever happen.
@@ -287,6 +287,11 @@ defaultCompareForallPoly :: (TestEquality f, OrdForall f) => f a -> f b -> Order
 defaultCompareForallPoly a b = case testEquality a b of
   Nothing -> compare (getTagBox a) (getTagBox b)
   Just Refl -> compareForall a b
+
+defaultEqForallPoly :: (TestEquality f, EqForall f) => f a -> f b -> Bool
+defaultEqForallPoly x y = case testEquality x y of
+  Nothing -> False
+  Just Refl -> eqForall x y
 
 getTagBox :: a -> Int
 getTagBox !x = I# (dataToTag# x)
