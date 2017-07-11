@@ -1,8 +1,11 @@
+{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE MagicHash #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE CPP #-}
 
 {-# OPTIONS_GHC -Wall #-}
@@ -46,7 +49,7 @@ module Data.Exists
   ) where
 
 import Data.Proxy (Proxy(..))
-import Data.Type.Equality ((:~:)(Refl))
+import Data.Type.Equality ((:~:)(Refl),TestEquality(..))
 import Control.Applicative (Const(..))
 import Data.Aeson (ToJSON(..),FromJSON(..))
 import Data.Hashable (Hashable(..))
@@ -54,6 +57,8 @@ import Data.Text (Text)
 import Data.Functor.Sum (Sum(..))
 import Data.Functor.Product (Product(..))
 import Data.Functor.Compose (Compose(..))
+import GHC.Int (Int(..))
+import GHC.Prim (dataToTag#)
 import qualified Data.Aeson.Types as Aeson
 import qualified Text.Read as R
 import qualified Web.PathPieces as PP
@@ -87,9 +92,17 @@ class EqForall f => OrdForall f where
 
 class EqForall f => EqForallPoly f where
   eqForallPoly :: f a -> f b -> Bool
+  default eqForallPoly :: TestEquality f => f a -> f b -> Bool
+  eqForallPoly x y = case testEquality x y of
+    Nothing -> False
+    Just Refl -> eqForall x y
 
+-- the default method does not work if your data type is a newtype wrapper
+-- over a function, but that should not really ever happen.
 class (OrdForall f, EqForallPoly f) => OrdForallPoly f where
   compareForallPoly :: f a -> f b -> Ordering
+  default compareForallPoly :: TestEquality f => f a -> f b -> Ordering
+  compareForallPoly = defaultCompareForallPoly
 
 class ShowForall f where
   showsPrecForall :: Int -> f a -> ShowS
@@ -270,4 +283,12 @@ instance (OrdForall f, OrdForall g) => OrdForall (Sum f g) where
   compareForall (InR _) (InL _) = GT
   compareForall (InL _) (InR _) = LT
 
+defaultCompareForallPoly :: (TestEquality f, OrdForall f) => f a -> f b -> Ordering
+defaultCompareForallPoly a b = case testEquality a b of
+  Nothing -> compare (getTagBox a) (getTagBox b)
+  Just Refl -> compareForall a b
+
+getTagBox :: a -> Int
+getTagBox !x = I# (dataToTag# x)
+{-# INLINE getTagBox #-}
 
