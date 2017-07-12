@@ -31,6 +31,7 @@ module Data.Exists
   , ReadForall(..)
   , EnumForall(..)
   , BoundedForall(..)
+  , SemigroupForall(..)
   , MonoidForall(..)
   , HashableForall(..)
   , PathPieceForall(..)
@@ -151,9 +152,11 @@ class PathPieceForall f where
   fromPathPieceForall :: Text -> Maybe (Exists f)
   toPathPieceForall :: f a -> Text
 
-class MonoidForall f where
+class SemigroupForall f where
+  sappendForall :: f a -> f a -> f a
+
+class SemigroupForall f => MonoidForall f where
   memptyForall :: f a
-  mappendForall :: f a -> f a -> f a
 
 --------------------
 -- Instances Below
@@ -171,9 +174,11 @@ instance ShowForall Proxy where
 instance ReadForall Proxy where
   readPrecForall = fmap Exists R.readPrec 
 
+instance SemigroupForall Proxy where
+  sappendForall _ _ = Proxy 
+
 instance MonoidForall Proxy where
   memptyForall = Proxy
-  mappendForall _ _ = Proxy 
 
 instance EqForall ((:~:) a) where
   eqForall Refl Refl = True
