@@ -219,6 +219,9 @@ instance (FromJSONKeyForall f, FromJSONForall f) => FromJSONKey (Exists f) where
 instance EqForallPoly f => Eq (Exists f) where
   Exists a == Exists b = eqForallPoly a b
 
+instance EqForallPoly2 f => Eq (Exists2 f) where
+  Exists2 a == Exists2 b = eqForallPoly2 a b
+
 instance OrdForallPoly f => Ord (Exists f) where
   compare (Exists a) (Exists b) = compareForallPoly a b
 
