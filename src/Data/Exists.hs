@@ -57,6 +57,7 @@ import Control.Applicative (Const(..))
 import Data.Aeson (ToJSON(..),FromJSON(..))
 import Data.Hashable (Hashable(..))
 import Data.Text (Text)
+import Data.Functor.Classes (Eq1(..))
 import Data.Functor.Sum (Sum(..))
 import Data.Functor.Product (Product(..))
 import Data.Functor.Compose (Compose(..))
@@ -273,11 +274,11 @@ instance (ShowForall f, ShowForall g) => ShowForall (Product f g) where
     (p >= 11) 
     (showString "Pair " . showsPrecForall 11 f . showChar ' ' . showsPrecForall 11 g)
 
-instance (EqForall f) => EqForall (Compose f g) where
-  eqForall (Compose x) (Compose y) = eqForall x y
+instance (Eq1 f, EqForall g) => EqForall (Compose f g) where
+  eqForall (Compose x) (Compose y) = liftEq eqForall x y
 
-instance (EqForallPoly f) => EqForallPoly (Compose f g) where
-  eqForallPoly (Compose x) (Compose y) = eqForallPoly x y
+instance (Eq1 f, EqForallPoly g) => EqForallPoly (Compose f g) where
+  eqForallPoly (Compose x) (Compose y) = liftEq eqForallPoly x y
 
 instance (EqForall f, EqForall g) => EqForall (Sum f g) where
   eqForall (InL f1) (InL f2) = eqForall f1 f2
