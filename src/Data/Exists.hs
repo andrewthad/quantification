@@ -1,3 +1,6 @@
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE MagicHash #-}
 {-# LANGUAGE PolyKinds #-}
@@ -6,6 +9,8 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE DefaultSignatures #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeFamilyDependencies #-}
 {-# LANGUAGE CPP #-}
 
 {-# OPTIONS_GHC -Wall #-}
@@ -32,18 +37,25 @@ module Data.Exists
   , EnumForall(..)
   , BoundedForall(..)
   , SemigroupForall(..)
-  , MonoidForall(..)
   , HashableForall(..)
   , PathPieceForall(..)
   , FromJSONForall(..)
+  , FromJSONExists(..)
   , ToJSONForall(..)
 #if MIN_VERSION_aeson(1,0,0) 
   , ToJSONKeyForall(..)
-  , FromJSONKeyForall(..)
+  , FromJSONKeyExists(..)
 #endif
+  , StorableForall(..)
     -- * Higher Rank Classes
   , EqForall2(..)
   , EqForallPoly2(..)
+    -- * More Type Classes
+  , Sing
+  , SingList(..)
+  , Reify(..)
+  , Unreify(..)
+  , MonoidForall(..)
     -- * Functions
   , showsForall
   , showForall
@@ -63,6 +75,7 @@ import Data.Functor.Product (Product(..))
 import Data.Functor.Compose (Compose(..))
 import GHC.Int (Int(..))
 import GHC.Prim (dataToTag#)
+import Foreign.Ptr (Ptr)
 import qualified Data.Aeson.Types as Aeson
 import qualified Text.Read as R
 import qualified Web.PathPieces as PP
@@ -131,15 +144,18 @@ class HashableForall f where
 class ToJSONKeyForall f where
   toJSONKeyForall :: ToJSONKeyFunctionForall f
 
-class FromJSONKeyForall f where
-  fromJSONKeyForall :: FromJSONKeyFunction (Exists f)
+class FromJSONKeyExists f where
+  fromJSONKeyExists :: FromJSONKeyFunction (Exists f)
 #endif
 
 class ToJSONForall f where
   toJSONForall :: f a -> Aeson.Value
 
 class FromJSONForall f where
-  parseJSONForall :: Aeson.Value -> Aeson.Parser (Exists f)
+  parseJSONForall :: Sing a -> Aeson.Value -> Aeson.Parser (f a)
+
+class FromJSONExists f where
+  parseJSONExists :: Aeson.Value -> Aeson.Parser (Exists f)
 
 class EnumForall f where
   toEnumForall :: Int -> Exists f
@@ -156,8 +172,11 @@ class PathPieceForall f where
 class SemigroupForall f where
   sappendForall :: f a -> f a -> f a
 
-class SemigroupForall f => MonoidForall f where
-  memptyForall :: f a
+class StorableForall (f :: k -> *) where
+  peekForall :: Sing a -> Ptr (f a) -> IO (f a)
+  pokeForall :: Ptr (f a) -> f a -> IO ()
+  sizeOfFunctorForall :: f a -> Int
+  sizeOfForall :: forall (a :: k). Proxy f -> Sing a -> Int
 
 --------------------
 -- Instances Below
@@ -177,9 +196,6 @@ instance ReadForall Proxy where
 
 instance SemigroupForall Proxy where
   sappendForall _ _ = Proxy 
-
-instance MonoidForall Proxy where
-  memptyForall = Proxy
 
 instance EqForall ((:~:) a) where
   eqForall Refl Refl = True
@@ -213,8 +229,8 @@ instance (ToJSONKeyForall f, ToJSONForall f) => ToJSONKey (Exists f) where
     ToJSONKeyTextForall t e -> ToJSONKeyText (\(Exists a) -> t a) (\(Exists a) -> e a)
     ToJSONKeyValueForall v e -> ToJSONKeyValue (\x -> case x of Exists a -> v a) (\(Exists a) -> e a)
 
-instance (FromJSONKeyForall f, FromJSONForall f) => FromJSONKey (Exists f) where
-  fromJSONKey = fromJSONKeyForall
+instance (FromJSONKeyExists f, FromJSONExists f) => FromJSONKey (Exists f) where
+  fromJSONKey = fromJSONKeyExists
 #endif
 
 instance EqForallPoly f => Eq (Exists f) where
@@ -232,8 +248,8 @@ instance HashableForall f => Hashable (Exists f) where
 instance ToJSONForall f => ToJSON (Exists f) where
   toJSON (Exists a) = toJSONForall a
 
-instance FromJSONForall f => FromJSON (Exists f) where
-  parseJSON v = parseJSONForall v
+instance FromJSONExists f => FromJSON (Exists f) where
+  parseJSON v = parseJSONExists v
 
 instance ShowForall f => Show (Exists f) where
   showsPrec p (Exists a) = showParen 
@@ -305,4 +321,21 @@ defaultEqForallPoly x y = case testEquality x y of
 getTagBox :: a -> Int
 getTagBox !x = I# (dataToTag# x)
 {-# INLINE getTagBox #-}
+
+type family Sing = (r :: k -> *) | r -> k
+
+class Unreify k where
+  unreify :: forall (a :: k) b. Sing a -> (Reify a => b) -> b
+
+class Reify a where
+  reify :: Sing a
+
+class SemigroupForall f => MonoidForall f where
+  memptyForall :: Sing a -> f a
+
+data SingList :: [k] -> * where
+  SingListNil :: SingList '[]
+  SingListCons :: Sing r -> SingList rs -> SingList (r ': rs)
+
+type instance Sing = SingList
 
