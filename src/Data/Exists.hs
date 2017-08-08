@@ -62,7 +62,7 @@ import Control.Applicative (Const(..))
 import Data.Aeson (ToJSON(..),FromJSON(..))
 import Data.Hashable (Hashable(..))
 import Data.Text (Text)
-import Data.Functor.Classes (Eq1(..))
+import Data.Functor.Classes (Eq1(..),Show1(..))
 import Data.Functor.Sum (Sum(..))
 import Data.Functor.Product (Product(..))
 import Data.Functor.Compose (Compose(..))
@@ -298,6 +298,21 @@ instance (Eq1 f, EqForall g) => EqForall (Compose f g) where
 
 instance (Eq1 f, EqForallPoly g) => EqForallPoly (Compose f g) where
   eqForallPoly (Compose x) (Compose y) = liftEq eqForallPoly x y
+
+instance (Show1 f, ShowForall g) => ShowForall (Compose f g) where
+  showsPrecForall _ (Compose x) = showString "Compose " . liftShowsPrec showsPrecForall showListForall 11 x
+
+showListForall :: ShowForall f => [f a] -> ShowS
+showListForall = showList__ showsForall
+
+-- Copied from GHC.Show. I do not like to import internal modules
+-- if I can instead copy a small amount of code.
+showList__ :: (a -> ShowS) ->  [a] -> ShowS
+showList__ _     []     s = "[]" ++ s
+showList__ showx (x:xs) s = '[' : showx x (showl xs)
+  where
+    showl []     = ']' : s
+    showl (y:ys) = ',' : showx y (showl ys)
 
 instance (EqForall f, EqForall g) => EqForall (Sum f g) where
   eqForall (InL f1) (InL f2) = eqForall f1 f2
