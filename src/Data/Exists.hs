@@ -44,9 +44,14 @@ module Data.Exists
     -- * Higher Rank Classes
   , EqForall2(..)
   , EqForallPoly2(..)
+  , ShowForall2(..)
     -- * Functions
+    -- ** Show
   , showsForall
   , showForall
+  , showsForall2
+  , showForall2
+    -- ** Defaulting
   , defaultEqForallPoly
   , defaultCompareForallPoly
   ) where
@@ -109,11 +114,20 @@ class (OrdForall f, EqForallPoly f) => OrdForallPoly f where
 class ShowForall f where
   showsPrecForall :: Int -> f a -> ShowS
 
+class ShowForall2 f where
+  showsPrecForall2 :: Int -> f a b -> ShowS
+
 showsForall :: ShowForall f => f a -> ShowS
 showsForall = showsPrecForall 0
 
 showForall :: ShowForall f => f a -> String
 showForall x = showsForall x ""
+
+showsForall2 :: ShowForall2 f => f a b -> ShowS
+showsForall2 = showsPrecForall2 0
+
+showForall2 :: ShowForall2 f => f a b -> String
+showForall2 x = showsForall2 x ""
 
 class ReadForall f where
   readPrecForall :: R.ReadPrec (Exists f)
@@ -239,6 +253,11 @@ instance ShowForall f => Show (Exists f) where
   showsPrec p (Exists a) = showParen 
     (p >= 11) 
     (showString "Exists " . showsPrecForall 11 a)
+
+instance ShowForall2 f => Show (Exists2 f) where
+  showsPrec p (Exists2 a) = showParen 
+    (p >= 11) 
+    (showString "Exists " . showsPrecForall2 11 a)
 
 instance ReadForall f => Read (Exists f) where
   readPrec = R.parens $ R.prec 10 $ do
