@@ -1,5 +1,5 @@
 name:                quantification
-version:             0.1.1
+version:             0.1.2
 synopsis:            Data types and typeclasses to deal with universally and existentially quantified types
 description:         Please see README.md
 homepage:            https://github.com/andrewthad/quantification#readme

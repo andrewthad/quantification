@@ -50,6 +50,7 @@ module Data.Exists
     -- * Higher Rank Classes
   , EqForall2(..)
   , EqForallPoly2(..)
+  , ShowForall2(..)
     -- * More Type Classes
   , Sing
   , SingList(..)
@@ -57,8 +58,12 @@ module Data.Exists
   , Unreify(..)
   , MonoidForall(..)
     -- * Functions
+    -- ** Show
   , showsForall
   , showForall
+  , showsForall2
+  , showForall2
+    -- ** Defaulting
   , defaultEqForallPoly
   , defaultCompareForallPoly
   ) where
@@ -69,7 +74,7 @@ import Control.Applicative (Const(..))
 import Data.Aeson (ToJSON(..),FromJSON(..))
 import Data.Hashable (Hashable(..))
 import Data.Text (Text)
-import Data.Functor.Classes (Eq1(..))
+import Data.Functor.Classes (Eq1(..),Show1(..))
 import Data.Functor.Sum (Sum(..))
 import Data.Functor.Product (Product(..))
 import Data.Functor.Compose (Compose(..))
@@ -122,11 +127,20 @@ class (OrdForall f, EqForallPoly f) => OrdForallPoly f where
 class ShowForall f where
   showsPrecForall :: Int -> f a -> ShowS
 
+class ShowForall2 f where
+  showsPrecForall2 :: Int -> f a b -> ShowS
+
 showsForall :: ShowForall f => f a -> ShowS
 showsForall = showsPrecForall 0
 
 showForall :: ShowForall f => f a -> String
 showForall x = showsForall x ""
+
+showsForall2 :: ShowForall2 f => f a b -> ShowS
+showsForall2 = showsPrecForall2 0
+
+showForall2 :: ShowForall2 f => f a b -> String
+showForall2 x = showsForall2 x ""
 
 class ReadForall f where
   readPrecForall :: R.ReadPrec (Exists f)
@@ -256,6 +270,11 @@ instance ShowForall f => Show (Exists f) where
     (p >= 11) 
     (showString "Exists " . showsPrecForall 11 a)
 
+instance ShowForall2 f => Show (Exists2 f) where
+  showsPrec p (Exists2 a) = showParen 
+    (p >= 11) 
+    (showString "Exists " . showsPrecForall2 11 a)
+
 instance ReadForall f => Read (Exists f) where
   readPrec = R.parens $ R.prec 10 $ do
     R.Ident "Exists" <- R.lexP
@@ -295,6 +314,21 @@ instance (Eq1 f, EqForall g) => EqForall (Compose f g) where
 
 instance (Eq1 f, EqForallPoly g) => EqForallPoly (Compose f g) where
   eqForallPoly (Compose x) (Compose y) = liftEq eqForallPoly x y
+
+instance (Show1 f, ShowForall g) => ShowForall (Compose f g) where
+  showsPrecForall _ (Compose x) = showString "Compose " . liftShowsPrec showsPrecForall showListForall 11 x
+
+showListForall :: ShowForall f => [f a] -> ShowS
+showListForall = showList__ showsForall
+
+-- Copied from GHC.Show. I do not like to import internal modules
+-- if I can instead copy a small amount of code.
+showList__ :: (a -> ShowS) ->  [a] -> ShowS
+showList__ _     []     s = "[]" ++ s
+showList__ showx (x:xs) s = '[' : showx x (showl xs)
+  where
+    showl []     = ']' : s
+    showl (y:ys) = ',' : showx y (showl ys)
 
 instance (EqForall f, EqForall g) => EqForall (Sum f g) where
   eqForall (InL f1) (InL f2) = eqForall f1 f2
