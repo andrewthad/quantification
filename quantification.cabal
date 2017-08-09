@@ -1,5 +1,5 @@
 name:                quantification
-version:             0.1.2
+version:             0.2
 synopsis:            Data types and typeclasses to deal with universally and existentially quantified types
 description:         Please see README.md
 homepage:            https://github.com/andrewthad/quantification#readme
@@ -17,7 +17,7 @@ library
   exposed-modules:
     Data.Exists
     Data.Monoid.Lifted
-    Topaz
+    Topaz.Rec
   build-depends: 
       base >= 4.9 && < 5
     , ghc-prim >= 0.5 && < 0.6

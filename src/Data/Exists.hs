@@ -37,6 +37,7 @@ module Data.Exists
   , EnumForall(..)
   , BoundedForall(..)
   , SemigroupForall(..)
+  , MonoidForall(..)
   , HashableForall(..)
   , PathPieceForall(..)
   , FromJSONForall(..)
@@ -56,7 +57,6 @@ module Data.Exists
   , SingList(..)
   , Reify(..)
   , Unreify(..)
-  , MonoidForall(..)
     -- * Functions
     -- ** Show
   , showsForall
@@ -66,6 +66,8 @@ module Data.Exists
     -- ** Defaulting
   , defaultEqForallPoly
   , defaultCompareForallPoly
+    -- ** Other
+  , unreifyList
   ) where
 
 import Data.Proxy (Proxy(..))
@@ -358,11 +360,19 @@ getTagBox !x = I# (dataToTag# x)
 
 type family Sing = (r :: k -> *) | r -> k
 
+type instance Sing = SingList
+
 class Unreify k where
   unreify :: forall (a :: k) b. Sing a -> (Reify a => b) -> b
 
 class Reify a where
   reify :: Sing a
+
+instance Reify '[] where
+  reify = SingListNil
+
+instance (Reify a, Reify as) => Reify (a ': as) where
+  reify = SingListCons reify reify
 
 class SemigroupForall f => MonoidForall f where
   memptyForall :: Sing a -> f a
@@ -371,5 +381,11 @@ data SingList :: [k] -> * where
   SingListNil :: SingList '[]
   SingListCons :: Sing r -> SingList rs -> SingList (r ': rs)
 
-type instance Sing = SingList
+unreifyList :: forall (as :: [k]) b. Unreify k
+  => SingList as
+  -> (Reify as => b)
+  -> b
+unreifyList SingListNil b = b
+unreifyList (SingListCons s ss) b = unreify s (unreifyList ss b)
+
 

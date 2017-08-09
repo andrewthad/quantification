@@ -14,11 +14,17 @@
 
 {-# OPTIONS_GHC -Wall #-}
 
-module Topaz
+module Topaz.Rec
   ( Rec(..)
-  , unreifyList
+  , map
+  , traverse
+  , traverse_
+  , zipWith
+  , foldMap
+  , foldMap1
   ) where
 
+import Prelude hiding (map,zipWith,foldMap,traverse)
 import Data.Exists
 import Data.Type.Equality
 import Data.Type.Coercion
@@ -26,6 +32,9 @@ import Data.Foldable (foldrM)
 import Data.Proxy (Proxy(..))
 import Foreign.Ptr (castPtr,plusPtr)
 import Foreign.Storable (Storable(..))
+import Data.Semigroup (Semigroup)
+import Data.Hashable (Hashable(..))
+import qualified Data.Semigroup as SG
 import qualified Data.Vector as V
 import qualified Data.Aeson as AE
 import qualified Data.Aeson.Types as AET
@@ -33,7 +42,6 @@ import qualified Data.Aeson.Types as AET
 data Rec :: (k -> *) -> [k] -> * where
   RecNil :: Rec f '[]
   RecCons :: f r -> Rec f rs -> Rec f (r ': rs)
-
 
 instance TestEquality f => TestEquality (Rec f) where
   testEquality RecNil RecNil = Just Refl
@@ -54,6 +62,25 @@ instance TestCoercion f => TestCoercion (Rec f) where
 instance EqForall f => Eq (Rec f as) where
   (==) = eqForall
 
+instance HashableForall f => HashableForall (Rec f) where
+  hashWithSaltForall s0 = go s0 where
+    go :: Int -> Rec f rs -> Int
+    go !s x = case x of
+      RecNil -> s
+      RecCons b bs -> go (hashWithSaltForall s b) bs
+
+instance HashableForall f => Hashable (Rec f as) where
+  hashWithSalt = hashWithSaltForall
+
+instance ShowForall f => ShowForall (Rec f) where
+  showsPrecForall p x = case x of
+    RecCons v vs -> showParen (p > 10)
+      $ showString "RecCons "
+      . showsPrecForall 11 v
+      . showString " "
+      . showsPrecForall 11 vs
+    RecNil -> showString "RecNil"
+
 instance EqForall f => EqForall (Rec f) where
   eqForall RecNil RecNil = True
   eqForall (RecCons a as) (RecCons b bs) =
@@ -67,16 +94,19 @@ instance OrdForall f => OrdForall (Rec f) where
   compareForall (RecCons a as) (RecCons b bs) =
     mappend (compareForall a b) (compareForall as bs)
 
-instance (MonoidForall f, Implicit as) => Monoid (Rec f as) where
-  mempty = rmap memptyForall (singListToRec implicit)
-  mappend = rzipWith sappendForall
+instance SemigroupForall f => Semigroup (Rec f as) where
+  (<>) = zipWith sappendForall
+
+instance (MonoidForall f, Reify as) => Monoid (Rec f as) where
+  mempty = map memptyForall (singListToRec reify)
+  mappend = zipWith sappendForall
 
 instance MonoidForall f => MonoidForall (Rec f) where
   memptyForall SingListNil = RecNil
   memptyForall (SingListCons s ss) = RecCons (memptyForall s) (memptyForall ss)
 
 instance SemigroupForall f => SemigroupForall (Rec f) where
-  sappendForall = rzipWith sappendForall
+  sappendForall = zipWith sappendForall
 
 instance ToJSONForall f => AE.ToJSON (Rec f as) where
   toJSON = toJSONForall
@@ -88,8 +118,8 @@ instance ToJSONForall f => ToJSONForall (Rec f) where
     go RecNil = []
     go (RecCons x xs) = toJSONForall x : go xs
 
-instance (FromJSONForall f, Implicit as) => AE.FromJSON (Rec f as) where
-  parseJSON = parseJSONForall implicit
+instance (FromJSONForall f, Reify as) => AE.FromJSON (Rec f as) where
+  parseJSON = parseJSONForall reify
 
 instance FromJSONForall f => FromJSONForall (Rec f) where
   parseJSONForall s0 = AE.withArray "Rec" $ \vs -> do
@@ -122,11 +152,11 @@ instance StorableForall f => StorableForall (Rec f) where
     pokeForall (castPtr ptr) r
     pokeForall (plusPtr ptr (sizeOfFunctorForall r)) rs
 
-instance (StorableForall f, Implicit as) => Storable (Rec f as) where
-  sizeOf _ = sizeOfForall (Proxy :: Proxy (Rec f)) (implicit :: SingList as)
+instance (StorableForall f, Reify as) => Storable (Rec f as) where
+  sizeOf _ = sizeOfForall (Proxy :: Proxy (Rec f)) (reify :: SingList as)
   alignment _ = sizeOf (undefined :: Rec f as)
   poke = pokeForall
-  peek = peekForall (implicit :: SingList as)
+  peek = peekForall (reify :: SingList as)
 
 instance FromJSONExists f => FromJSONExists (Rec f) where
   parseJSONExists = AE.withArray "Rec" $ \vs -> 
@@ -141,24 +171,57 @@ singListToRec :: SingList as -> Rec Sing as
 singListToRec SingListNil = RecNil
 singListToRec (SingListCons r rs) = RecCons r (singListToRec rs)
 
-rmap :: (forall x. f x -> g x) -> Rec f as -> Rec g as
-rmap _ RecNil = RecNil
-rmap f (RecCons x xs) = RecCons (f x) (rmap f xs)
+map :: (forall x. f x -> g x) -> Rec f as -> Rec g as
+map _ RecNil = RecNil
+map f (RecCons x xs) = RecCons (f x) (map f xs)
 
-rzipWith :: (forall x. f x -> g x -> h x) -> Rec f rs -> Rec g rs -> Rec h rs
-rzipWith _ RecNil RecNil = RecNil
-rzipWith f (RecCons a as) (RecCons b bs) =
-  RecCons (f a b) (rzipWith f as bs)
+zipWith :: (forall x. f x -> g x -> h x) -> Rec f rs -> Rec g rs -> Rec h rs
+zipWith _ RecNil RecNil = RecNil
+zipWith f (RecCons a as) (RecCons b bs) =
+  RecCons (f a b) (zipWith f as bs)
 
-unreifyList :: forall (as :: [k]) b. Unreify k => SingList as -> (Implicit as => b) -> b
-unreifyList SingListNil b = b
-unreifyList (SingListCons s ss) b = unreify s (unreifyList ss b)
+-- | Map each element of a record to a monoid and combine the results.
+foldMap :: forall f m rs. Monoid m
+  => (forall x. f x -> m)
+  -> Rec f rs
+  -> m
+foldMap f = go mempty
+  where
+  go :: forall ss. m -> Rec f ss -> m
+  go !m record = case record of
+    RecNil -> m
+    RecCons r rs -> go (mappend m (f r)) rs
+  {-# INLINABLE go #-}
+{-# INLINE foldMap #-}
 
-class Implicit a where
-  implicit :: Sing a
+foldMap1 :: forall f m r rs. Semigroup m
+  => (forall x. f x -> m)
+  -> Rec f (r ': rs)
+  -> m
+foldMap1 f (RecCons b bs) = go (f b) bs
+  where
+  go :: forall ss. m -> Rec f ss -> m
+  go !m record = case record of
+    RecNil -> m
+    RecCons r rs -> go (m SG.<> (f r)) rs
+  {-# INLINABLE go #-}
+{-# INLINE foldMap1 #-}
 
-instance Implicit '[] where
-  implicit = SingListNil
+traverse
+  :: Applicative h
+  => (forall x. f x -> h (g x))
+  -> Rec f rs
+  -> h (Rec g rs)
+traverse _ RecNil = pure RecNil
+traverse f (RecCons x xs) = RecCons <$> f x <*> traverse f xs
+{-# INLINABLE traverse #-}
 
-instance (Reify a, Implicit as) => Implicit (a ': as) where
-  implicit = SingListCons reify implicit
+traverse_
+  :: Applicative h
+  => (forall x. f x -> h b)
+  -> Rec f rs
+  -> h ()
+traverse_ _ RecNil = pure ()
+traverse_ f (RecCons x xs) = f x *> traverse_ f xs
+{-# INLINABLE traverse_ #-}
+
