@@ -81,6 +81,9 @@ instance ShowForall f => ShowForall (Rec f) where
       . showsPrecForall 11 vs
     RecNil -> showString "RecNil"
 
+instance ShowForall f => Show (Rec f as) where
+  showsPrec = showsPrecForall
+
 instance EqForall f => EqForall (Rec f) where
   eqForall RecNil RecNil = True
   eqForall (RecCons a as) (RecCons b bs) =
