@@ -1,16 +1,16 @@
-name:                quantification
-version:             0.2
-synopsis:            Data types and typeclasses to deal with universally and existentially quantified types
-description:         Please see README.md
-homepage:            https://github.com/andrewthad/quantification#readme
-license:             BSD3
-license-file:        LICENSE
-author:              Andrew Martin
-maintainer:          andrew.thaddeus@gmail.com
-copyright:           2016 Andrew Martin
-category:            Web
-build-type:          Simple
-cabal-version:       >=1.10
+name: quantification
+version: 0.2
+synopsis: Rage against the quantification
+description: Data types and typeclasses to deal with universally and existentially quantified types
+homepage: https://github.com/andrewthad/quantification#readme
+license: BSD3
+license-file: LICENSE
+author: Andrew Martin
+maintainer: andrew.thaddeus@gmail.com
+copyright: 2016 Andrew Martin
+category: Web
+build-type: Simple
+cabal-version: >=1.10
 
 library
   hs-source-dirs: src

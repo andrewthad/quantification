@@ -11,6 +11,7 @@
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeFamilyDependencies #-}
+{-# LANGUAGE TypeInType #-}
 {-# LANGUAGE CPP #-}
 
 {-# OPTIONS_GHC -Wall #-}
@@ -27,6 +28,7 @@ module Data.Exists
     Exists(..)
   , Exists2(..)
   , Exists3(..)
+  , Some(..)
     -- * Type Classes
   , EqForall(..)
   , EqForallPoly(..)
@@ -55,8 +57,13 @@ module Data.Exists
     -- * More Type Classes
   , Sing
   , SingList(..)
+  , SingMaybe(..)
   , Reify(..)
   , Unreify(..)
+    -- * Sing Type Classes
+  , EqSing(..)
+  , ToJSONSing(..)
+  , FromJSONSing(..)
     -- * Functions
     -- ** Show
   , showsForall
@@ -83,6 +90,8 @@ import Data.Functor.Compose (Compose(..))
 import GHC.Int (Int(..))
 import GHC.Prim (dataToTag#)
 import Foreign.Ptr (Ptr)
+import Data.Kind (Type)
+import qualified Data.Vector as V
 import qualified Data.Aeson.Types as Aeson
 import qualified Text.Read as R
 import qualified Web.PathPieces as PP
@@ -96,11 +105,11 @@ import Data.Aeson (ToJSONKey(..),FromJSONKey(..),
 -- newtype Exists (f :: k -> *) = Exists { runExists :: forall r. (forall a. f a -> r) -> r }
 
 -- | Hide a type parameter.
-data Exists (f :: k -> *) = forall a. Exists !(f a)
+data Exists (f :: k -> Type) = forall a. Exists !(f a)
 
-data Exists2 (f :: k -> j -> *) = forall a b. Exists2 !(f a b)
+data Exists2 (f :: k -> j -> Type) = forall a b. Exists2 !(f a b)
 
-data Exists3 (f :: k -> j -> l -> *) = forall a b c. Exists3 !(f a b c)
+data Exists3 (f :: k -> j -> l -> Type) = forall a b c. Exists3 !(f a b c)
 
 #if MIN_VERSION_aeson(1,0,0) 
 data ToJSONKeyFunctionForall f
@@ -188,7 +197,7 @@ class PathPieceForall f where
 class SemigroupForall f where
   sappendForall :: f a -> f a -> f a
 
-class StorableForall (f :: k -> *) where
+class StorableForall (f :: k -> Type) where
   peekForall :: Sing a -> Ptr (f a) -> IO (f a)
   pokeForall :: Ptr (f a) -> f a -> IO ()
   sizeOfFunctorForall :: f a -> Int
@@ -358,9 +367,10 @@ getTagBox :: a -> Int
 getTagBox !x = I# (dataToTag# x)
 {-# INLINE getTagBox #-}
 
-type family Sing = (r :: k -> *) | r -> k
+type family Sing = (r :: k -> Type) | r -> k
 
 type instance Sing = SingList
+type instance Sing = SingMaybe
 
 class Unreify k where
   unreify :: forall (a :: k) b. Sing a -> (Reify a => b) -> b
@@ -374,12 +384,38 @@ instance Reify '[] where
 instance (Reify a, Reify as) => Reify (a ': as) where
   reify = SingListCons reify reify
 
+instance Reify 'Nothing where
+  reify = SingMaybeNothing
+
+instance Reify a => Reify ('Just a) where
+  reify = SingMaybeJust reify
+
+class EqSing k where
+  eqSing :: forall (a :: k) (b :: k). Sing a -> Sing b -> Maybe (a :~: b)
+
+instance EqSing a => EqSing [a] where
+  eqSing = eqSingList
+
+eqSingList :: forall (a :: [k]) (b :: [k]). EqSing k => SingList a -> SingList b -> Maybe (a :~: b)
+eqSingList SingListNil SingListNil = Just Refl
+eqSingList SingListNil (SingListCons _ _) = Nothing
+eqSingList (SingListCons _ _) SingListNil = Nothing
+eqSingList (SingListCons a as) (SingListCons b bs) = case eqSing a b of
+  Just Refl -> case eqSingList as bs of
+    Just Refl -> Just Refl
+    Nothing -> Nothing
+  Nothing -> Nothing
+
 class SemigroupForall f => MonoidForall f where
   memptyForall :: Sing a -> f a
 
-data SingList :: [k] -> * where
+data SingList :: [k] -> Type where
   SingListNil :: SingList '[]
   SingListCons :: Sing r -> SingList rs -> SingList (r ': rs)
+
+data SingMaybe :: Maybe k -> Type where
+  SingMaybeJust :: Sing a -> SingMaybe ('Just a)
+  SingMaybeNothing :: SingMaybe 'Nothing
 
 unreifyList :: forall (as :: [k]) b. Unreify k
   => SingList as
@@ -387,5 +423,31 @@ unreifyList :: forall (as :: [k]) b. Unreify k
   -> b
 unreifyList SingListNil b = b
 unreifyList (SingListCons s ss) b = unreify s (unreifyList ss b)
+
+data Some (f :: k -> Type) = forall a. Some !(Sing a) !(f a)
+
+instance (EqForall f, EqSing k) => Eq (Some (f :: k -> Type)) where 
+  Some s1 v1 == Some s2 v2 = case eqSing s1 s2 of
+    Just Refl -> eqForall v1 v2
+    Nothing -> False
+
+class ToJSONSing k where
+  toJSONSing :: forall (a :: k). Sing a -> Aeson.Value
+
+instance (ToJSONForall f, ToJSONSing k) => ToJSON (Some (f :: k -> Type)) where
+  toJSON (Some s v) = toJSON [toJSONSing s, toJSONForall v]
+
+class FromJSONSing k where
+  parseJSONSing :: Aeson.Value -> Aeson.Parser (Exists (Sing :: k -> Type))
+
+instance (FromJSONForall f, FromJSONSing k) => FromJSON (Some (f :: k -> Type)) where
+  parseJSON = Aeson.withArray "Some" $ \v -> if V.length v == 2
+    then do
+      let x = V.unsafeIndex v 0
+          y = V.unsafeIndex v 1
+      Exists s <- parseJSONSing x :: Aeson.Parser (Exists (Sing :: k -> Type))
+      val <- parseJSONForall s y
+      return (Some s val)
+    else fail "array of length 2 expected"
 
 
