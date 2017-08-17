@@ -1,16 +1,16 @@
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE BangPatterns #-}
-{-# LANGUAGE MagicHash #-}
-{-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DefaultSignatures #-}
+{-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE MagicHash #-}
+{-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE DefaultSignatures #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeFamilyDependencies #-}
+{-# LANGUAGE TypeOperators #-}
 
 {-# OPTIONS_GHC -Wall #-}
 
@@ -22,9 +22,15 @@ module Topaz.Rec
   , zipWith
   , foldMap
   , foldMap1
+    -- * Access
+  , get
+  , put
+  , gets
+  , puts
   ) where
 
 import Prelude hiding (map,zipWith,foldMap,traverse)
+import Topaz.Types (Elem(..))
 import Data.Exists
 import Data.Type.Equality
 import Data.Type.Coercion
@@ -227,4 +233,19 @@ traverse_
 traverse_ _ RecNil = pure ()
 traverse_ f (RecCons x xs) = f x *> traverse_ f xs
 {-# INLINABLE traverse_ #-}
+
+get :: Elem rs r -> Rec f rs -> f r
+get ElemHere (RecCons r _) = r
+get (ElemThere ix) (RecCons _ rs) = get ix rs
+
+put :: Elem rs r -> f r -> Rec f rs -> Rec f rs
+put ElemHere r' (RecCons _ rs) = RecCons r' rs
+put (ElemThere ix) r' (RecCons r rs) = RecCons r (put ix r' rs)
+
+gets :: Rec (Elem rs) ss -> Rec f rs -> Rec f ss
+gets ixs rec = map (\e -> get e rec) ixs
+
+puts :: Rec (Elem rs) ss -> Rec f rs -> Rec f ss -> Rec f rs
+puts RecNil rs _ = rs
+puts (RecCons ix ixs) rs (RecCons s ss) = put ix s (puts ixs rs ss)
 

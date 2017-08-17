@@ -18,6 +18,7 @@ library
     Data.Exists
     Data.Monoid.Lifted
     Topaz.Rec
+    Topaz.Types
   build-depends: 
       base >= 4.9 && < 5
     , ghc-prim >= 0.5 && < 0.6
