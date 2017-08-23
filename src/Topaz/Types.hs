@@ -14,6 +14,7 @@ module Topaz.Types
   ( Elem(..)
   , Rec(..)
   , BiRec(..)
+  , NestRec(..)
   , Fix(..)
   , HFix(..)
   , Nest(..)
@@ -51,8 +52,8 @@ data Rec :: (k -> Type) -> [k] -> Type where
 data BiRec :: (k -> Type) -> (j -> Type) -> [k] -> [j] -> Type where
   BiRec :: Rec f ks -> Rec g js -> BiRec f g ks js
 
--- data NestRec :: (k -> Type) -> Nest k -> Type where
---   NestRec :: Rec f rs -> -> NestRec f ('Nest _ rs)
+data NestRec :: (k -> Type) -> Nest k -> Type where
+  NestRec :: Rec f rs -> Rec (NestRec f) ns -> NestRec f ('Nest ns rs)
 
 data Nest a = Nest [Nest a] [a]
 newtype Fix f = Fix (f (Fix f))
