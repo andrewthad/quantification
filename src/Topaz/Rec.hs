@@ -17,6 +17,7 @@
 module Topaz.Rec
   ( Rec(..)
   , map
+  , append
   , traverse
   , traverse_
   , zipWith
@@ -30,7 +31,7 @@ module Topaz.Rec
   ) where
 
 import Prelude hiding (map,zipWith,foldMap,traverse)
-import Topaz.Types (Elem(..))
+import Topaz.Types (Elem(..),type (++))
 import Data.Exists
 import Data.Type.Equality
 import Data.Type.Coercion
@@ -248,4 +249,8 @@ gets ixs rec = map (\e -> get e rec) ixs
 puts :: Rec (Elem rs) ss -> Rec f rs -> Rec f ss -> Rec f rs
 puts RecNil rs _ = rs
 puts (RecCons ix ixs) rs (RecCons s ss) = put ix s (puts ixs rs ss)
+
+append :: Rec f as -> Rec f bs -> Rec f (as ++ bs)
+append RecNil ys = ys
+append (RecCons x xs) ys = RecCons x (append xs ys)
 
