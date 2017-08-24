@@ -13,11 +13,12 @@
 module Topaz.Types
   ( Elem(..)
   , Rec(..)
-  , BiRec(..)
+  -- , BiRec(..)
   , NestRec(..)
   , Fix(..)
   , HFix(..)
   , Nest(..)
+  , EqHetero(..)
   , type (++)
   ) where
 
@@ -49,8 +50,8 @@ data Rec :: (k -> Type) -> [k] -> Type where
   RecNil :: Rec f '[]
   RecCons :: f r -> Rec f rs -> Rec f (r ': rs)
 
-data BiRec :: (k -> Type) -> (j -> Type) -> [k] -> [j] -> Type where
-  BiRec :: Rec f ks -> Rec g js -> BiRec f g ks js
+-- data BiRec :: (k -> Type) -> (j -> Type) -> [k] -> [j] -> Type where
+--   BiRec :: Rec f ks -> Rec g js -> BiRec f g ks js
 
 data NestRec :: (k -> Type) -> Nest k -> Type where
   NestRec :: Rec f rs -> Rec (NestRec f) ns -> NestRec f ('Nest ns rs)
@@ -58,6 +59,13 @@ data NestRec :: (k -> Type) -> Nest k -> Type where
 data Nest a = Nest [Nest a] [a]
 newtype Fix f = Fix (f (Fix f))
 newtype HFix h a = HFix (h (HFix h) a)
+
+-- Think of a better name for this typeclass
+class EqHetero h where
+  eqHetero :: (forall x. f x -> f x -> Bool) -> h f a -> h f a -> Bool
+
+instance EqHetero h => EqForall (HFix h) where
+  eqForall (HFix a) (HFix b) = eqHetero eqForall a b 
 
 -- We need more Eq typeclasses to write this
 -- instance Eq (HFix h a) where
