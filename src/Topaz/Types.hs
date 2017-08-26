@@ -7,6 +7,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 {-# OPTIONS_GHC -Wall -Werror #-}
 
@@ -19,6 +20,7 @@ module Topaz.Types
   , HFix(..)
   , Nest(..)
   , EqHetero(..)
+  , TestEqualityHetero(..)
   , type (++)
   ) where
 
@@ -32,6 +34,7 @@ import Data.Proxy (Proxy(..))
 import Foreign.Ptr (castPtr,plusPtr)
 import Data.Foldable (foldrM)
 import Data.Kind (Type)
+import Data.Monoid.Lifted (Semigroup1(..), Monoid1(..), append1)
 import qualified Data.Semigroup as SG
 import qualified Data.Aeson as AE
 import qualified Data.Aeson.Types as AET
@@ -60,6 +63,13 @@ data Nest a = Nest [Nest a] [a]
 newtype Fix f = Fix (f (Fix f))
 newtype HFix h a = HFix (h (HFix h) a)
 
+instance Semigroup1 f => Semigroup (Fix f) where
+  Fix a <> Fix b = Fix (append1 a b)
+
+instance Monoid1 f => Monoid (Fix f) where
+  mempty = Fix (liftEmpty mempty)
+  mappend = (SG.<>)
+
 -- Think of a better name for this typeclass
 class EqHetero h where
   eqHetero :: (forall x. f x -> f x -> Bool) -> h f a -> h f a -> Bool
@@ -67,9 +77,14 @@ class EqHetero h where
 instance EqHetero h => EqForall (HFix h) where
   eqForall (HFix a) (HFix b) = eqHetero eqForall a b 
 
--- We need more Eq typeclasses to write this
--- instance Eq (HFix h a) where
---   HFix a == HFix b = 
+instance EqHetero h => Eq (HFix h a) where
+  (==) = eqForall
+
+class TestEqualityHetero h where
+  testEqualityHetero :: (forall x y. f x -> f y -> Maybe (x :~: y)) -> h f a -> h f b -> Maybe (a :~: b)
+
+instance TestEqualityHetero h => TestEquality (HFix h) where
+  testEquality (HFix a) (HFix b) = testEqualityHetero testEquality a b
 
 instance TestEquality f => TestEquality (Rec f) where
   testEquality RecNil RecNil = Just Refl
