@@ -7,12 +7,17 @@ module Data.Monoid.Lifted
 
 import Data.Functor.Identity
 import Data.Functor.Compose
-import Data.Functor.Product
+import qualified Data.Functor.Product as FP
 import Data.Map.Strict (Map)
+import Data.HashMap.Strict (HashMap)
 import Control.Applicative
 import Data.Semigroup (Semigroup)
+import Data.Hashable (Hashable)
+import Data.Monoid
+import Data.Proxy (Proxy(..))
 import qualified Data.Semigroup as SG
 import qualified Data.Map.Strict as M
+import qualified Data.HashMap.Strict as HM
 
 -- | Laws for this typeclass:
 --
@@ -50,8 +55,16 @@ instance Semigroup1 IO where
 instance Monoid1 IO where
   liftEmpty = pure
 
+-- | Disagrees with 'Semigroup' instance for 'Map'
 instance Ord k => Semigroup1 (Map k) where
   liftAppend = M.unionWith
+
+-- | Disagrees with 'Semigroup' instance for 'HashMap'
+instance (Hashable k, Eq k) => Semigroup1 (HashMap k) where
+  liftAppend = HM.unionWith
+
+instance (Hashable k, Eq k) => Monoid1 (HashMap k) where
+  liftEmpty _ = HM.empty
 
 instance Semigroup1 [] where
   liftAppend _ = (++)
@@ -65,11 +78,33 @@ instance Semigroup1 Identity where
 instance Monoid1 Identity where
   liftEmpty = Identity
 
-instance (Semigroup1 f, Semigroup1 g) => Semigroup1 (Product f g) where
-  liftAppend f (Pair a1 b1) (Pair a2 b2) = Pair (liftAppend f a1 a2) (liftAppend f b1 b2)
+instance (Semigroup1 f, Semigroup1 g) => Semigroup1 (FP.Product f g) where
+  liftAppend f (FP.Pair a1 b1) (FP.Pair a2 b2) = FP.Pair (liftAppend f a1 a2) (liftAppend f b1 b2)
 
-instance (Monoid1 f, Monoid1 g) => Monoid1 (Product f g) where
-  liftEmpty a = Pair (liftEmpty a) (liftEmpty a)
+instance (Monoid1 f, Monoid1 g) => Monoid1 (FP.Product f g) where
+  liftEmpty a = FP.Pair (liftEmpty a) (liftEmpty a)
 
+instance Semigroup1 Dual where
+  liftAppend f (Dual a) (Dual b) = Dual (f b a)
 
+instance Monoid1 Dual where
+  liftEmpty a = Dual a
+
+instance Semigroup a => Semigroup1 ((,) a) where
+  liftAppend f (a1,b1) (a2,b2) = (a1 SG.<> a2, f b1 b2)
+
+instance (Semigroup a, Monoid a) => Monoid1 ((,) a) where
+  liftEmpty b = (mempty,b)
+
+instance Semigroup1 Proxy where
+  liftAppend _ _ _ = Proxy
+
+instance Monoid1 Proxy where
+  liftEmpty _ = Proxy
+
+instance Semigroup1 ((->) a) where
+  liftAppend combine f g a = combine (f a) (g a)
+
+instance Monoid1 ((->) a) where
+  liftEmpty b _ = b
 
