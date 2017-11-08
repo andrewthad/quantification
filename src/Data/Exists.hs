@@ -375,6 +375,9 @@ type instance Sing = SingMaybe
 class Unreify k where
   unreify :: forall (a :: k) b. Sing a -> (Reify a => b) -> b
 
+instance Unreify k => Unreify [k] where
+  unreify = unreifyList
+
 class Reify a where
   reify :: Sing a
 

@@ -112,3 +112,7 @@ append :: Rec f as -> Rec f bs -> Rec f (as ++ bs)
 append RecNil ys = ys
 append (RecCons x xs) ys = RecCons x (append xs ys)
 
+fromSingList :: SingList as -> Rec Sing as
+fromSingList SingListNil = RecNil
+fromSingList (SingListCons r rs) = RecCons r (fromSingList rs)
+
