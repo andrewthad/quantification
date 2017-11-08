@@ -28,6 +28,8 @@ module Topaz.Rec
   , put
   , gets
   , puts
+    -- * Conversion
+  , fromSingList
   ) where
 
 import Prelude hiding (map,zipWith,foldMap,traverse)
