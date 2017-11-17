@@ -46,6 +46,7 @@ module Data.Exists
   , FromJSONExists(..)
   , ToJSONForall(..)
 #if MIN_VERSION_aeson(1,0,0) 
+  , ToJSONKeyFunctionForall(..)
   , ToJSONKeyForall(..)
   , FromJSONKeyExists(..)
 #endif
