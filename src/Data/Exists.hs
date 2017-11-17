@@ -65,6 +65,7 @@ module Data.Exists
   , EqSing(..)
   , ToJSONSing(..)
   , FromJSONSing(..)
+  , ToSing(..)
     -- * Functions
     -- ** Show
   , showsForall
@@ -434,6 +435,9 @@ instance (EqForall f, EqSing k) => Eq (Some (f :: k -> Type)) where
   Some s1 v1 == Some s2 v2 = case eqSing s1 s2 of
     Just Refl -> eqForall v1 v2
     Nothing -> False
+
+class ToSing (f :: k -> Type) where
+  toSing :: f a -> Sing a
 
 class ToJSONSing k where
   toJSONSing :: forall (a :: k). Sing a -> Aeson.Value
