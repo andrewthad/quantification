@@ -77,6 +77,9 @@ module Data.Exists
     -- ** Defaulting
   , defaultEqForallPoly
   , defaultCompareForallPoly
+#if MIN_VERSION_aeson(1,0,0) 
+  , parseJSONMapForallKey
+#endif
     -- ** Other
   , unreifyList
   ) where
@@ -95,6 +98,11 @@ import GHC.Int (Int(..))
 import GHC.Prim (dataToTag#)
 import Foreign.Ptr (Ptr)
 import Data.Kind (Type)
+import Data.Map.Strict (Map)
+import Data.Coerce (coerce)
+import qualified Data.Traversable as TRV
+import qualified Data.Map.Strict as M
+import qualified Data.HashMap.Strict as HM
 import qualified Data.Vector as V
 import qualified Data.Aeson.Types as Aeson
 import qualified Text.Read as R
@@ -104,6 +112,7 @@ import qualified Web.PathPieces as PP
 import qualified Data.Aeson.Encoding as Aeson
 import Data.Aeson (ToJSONKey(..),FromJSONKey(..),
   ToJSONKeyFunction(..),FromJSONKeyFunction(..))
+import Data.Aeson.Internal ((<?>),JSONPathElement(Key,Index))
 #endif
 
 -- newtype Exists (f :: k -> *) = Exists { runExists :: forall r. (forall a. f a -> r) -> r }
@@ -465,5 +474,57 @@ instance (FromJSONForall f, FromJSONSing k) => FromJSON (Some (f :: k -> Type)) 
       val <- parseJSONForall s y
       return (Some s val)
     else fail "array of length 2 expected"
+
+-- only used internally for its instances
+newtype Apply f a = Apply { getApply :: f a }
+
+instance EqForall f => Eq (Apply f a) where
+  Apply a == Apply b = eqForall a b
+
+instance OrdForall f => Ord (Apply f a) where
+  compare (Apply a) (Apply b) = compareForall a b
+
+#if MIN_VERSION_aeson(1,0,0) 
+-- | Parse a 'Map' whose key type is higher-kinded. This only creates a valid 'Map'
+--   if the 'OrdForall' instance agrees with the 'Ord' instance.
+parseJSONMapForallKey :: forall f a v. (FromJSONKeyForall f, OrdForall f)
+  => (Aeson.Value -> Aeson.Parser v) 
+  -> Sing a
+  -> Aeson.Value
+  -> Aeson.Parser (Map (f a) v)
+parseJSONMapForallKey valueParser s obj = case fromJSONKeyForall of
+  FromJSONKeyTextParserForall f -> Aeson.withObject "Map k v"
+    ( fmap (M.mapKeysMonotonic getApply) . HM.foldrWithKey
+      (\k v m -> M.insert
+        <$> (coerce (f s k :: Aeson.Parser (f a)) :: Aeson.Parser (Apply f a)) <?> Key k
+        <*> valueParser v <?> Key k
+        <*> m
+      ) (pure M.empty)
+    ) obj
+  FromJSONKeyValueForall f -> Aeson.withArray "Map k v"
+    ( fmap (M.mapKeysMonotonic getApply . M.fromList)
+    . (coerce :: Aeson.Parser [(f a, v)] -> Aeson.Parser [(Apply f a, v)])
+    . TRV.sequence
+    . zipWith (parseIndexedJSONPair (f s) valueParser) [0..]
+    . V.toList
+    ) obj
+
+-- copied from aeson
+parseIndexedJSONPair :: (Aeson.Value -> Aeson.Parser a) -> (Aeson.Value -> Aeson.Parser b) -> Int -> Aeson.Value -> Aeson.Parser (a, b)
+parseIndexedJSONPair keyParser valParser idx value = p value <?> Index idx
+  where
+    p = Aeson.withArray "(k,v)" $ \ab ->
+        let n = V.length ab
+        in if n == 2
+             then (,) <$> parseJSONElemAtIndex keyParser 0 ab
+                      <*> parseJSONElemAtIndex valParser 1 ab
+             else fail $ "cannot unpack array of length " ++
+                         show n ++ " into a pair"
+{-# INLINE parseIndexedJSONPair #-}
+
+-- copied from aeson
+parseJSONElemAtIndex :: (Aeson.Value -> Aeson.Parser a) -> Int -> V.Vector Aeson.Value -> Aeson.Parser a
+parseJSONElemAtIndex p idx ary = p (V.unsafeIndex ary idx) <?> Index idx
+#endif
 
 
