@@ -47,8 +47,10 @@ module Data.Exists
   , ToJSONForall(..)
 #if MIN_VERSION_aeson(1,0,0) 
   , ToJSONKeyFunctionForall(..)
+  , FromJSONKeyFunctionForall(..)
   , ToJSONKeyForall(..)
   , FromJSONKeyExists(..)
+  , FromJSONKeyForall(..)
 #endif
   , StorableForall(..)
     -- * Higher Rank Classes
@@ -117,6 +119,9 @@ data Exists3 (f :: k -> j -> l -> Type) = forall a b c. Exists3 !(f a b c)
 data ToJSONKeyFunctionForall f
   = ToJSONKeyTextForall !(forall a. f a -> Text) !(forall a. f a -> Aeson.Encoding' Text)
   | ToJSONKeyValueForall !(forall a. f a -> Aeson.Value) !(forall a. f a -> Aeson.Encoding)
+data FromJSONKeyFunctionForall f
+  = FromJSONKeyTextParserForall !(forall a. Sing a -> Text -> Aeson.Parser (f a))
+  | FromJSONKeyValueForall !(forall a. Sing a -> Aeson.Value -> Aeson.Parser (f a))
 #endif
 
 class EqForall f where
@@ -173,6 +178,9 @@ class ToJSONKeyForall f where
 
 class FromJSONKeyExists f where
   fromJSONKeyExists :: FromJSONKeyFunction (Exists f)
+
+class FromJSONKeyForall f where
+  fromJSONKeyForall :: FromJSONKeyFunctionForall f
 #endif
 
 class ToJSONForall f where
