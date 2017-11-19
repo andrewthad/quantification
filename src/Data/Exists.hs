@@ -339,6 +339,14 @@ instance (ShowForall f, ShowForall g) => ShowForall (Product f g) where
     (p >= 11) 
     (showString "Pair " . showsPrecForall 11 f . showChar ' ' . showsPrecForall 11 g)
 
+instance (Aeson.ToJSON1 f, ToJSONForall g) => ToJSONForall (Compose f g) where
+  toJSONForall (Compose x) = Aeson.liftToJSON toJSONForall (Aeson.toJSON . map toJSONForall) x
+
+instance (Aeson.FromJSON1 f, FromJSONForall g) => FromJSONForall (Compose f g) where
+  parseJSONForall s = fmap Compose . Aeson.liftParseJSON
+    (parseJSONForall s)
+    (Aeson.withArray "Compose" (fmap V.toList . V.mapM (parseJSONForall s)))
+
 instance (Eq1 f, EqForall g) => EqForall (Compose f g) where
   eqForall (Compose x) (Compose y) = liftEq eqForall x y
 
