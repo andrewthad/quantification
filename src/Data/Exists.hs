@@ -1,18 +1,18 @@
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE BangPatterns #-}
-{-# LANGUAGE MagicHash #-}
-{-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DefaultSignatures #-}
+{-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE MagicHash #-}
+{-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE DefaultSignatures #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeFamilyDependencies #-}
 {-# LANGUAGE TypeInType #-}
-{-# LANGUAGE CPP #-}
+{-# LANGUAGE TypeOperators #-}
 
 {-# OPTIONS_GHC -Wall #-}
 
@@ -29,12 +29,18 @@ module Data.Exists
   , Exists2(..)
   , Exists3(..)
   , Some(..)
+  , DependentPair(..)
+  , WitnessedEquality(..)
+  , WitnessedOrdering(..)
     -- * Type Classes
   , EqForall(..)
   , EqForallPoly(..)
+  , EqForeach(..)
   , OrdForall(..)
   , OrdForallPoly(..)
+  , OrdForeach(..)
   , ShowForall(..)
+  , ShowForeach(..)
   , ReadForall(..)
   , EnumForall(..)
   , BoundedForall(..)
@@ -45,13 +51,11 @@ module Data.Exists
   , FromJSONForall(..)
   , FromJSONExists(..)
   , ToJSONForall(..)
-#if MIN_VERSION_aeson(1,0,0) 
   , ToJSONKeyFunctionForall(..)
   , FromJSONKeyFunctionForall(..)
   , ToJSONKeyForall(..)
   , FromJSONKeyExists(..)
   , FromJSONKeyForall(..)
-#endif
   , StorableForall(..)
     -- * Higher Rank Classes
   , EqForall2(..)
@@ -77,9 +81,10 @@ module Data.Exists
     -- ** Defaulting
   , defaultEqForallPoly
   , defaultCompareForallPoly
-#if MIN_VERSION_aeson(1,0,0) 
   , parseJSONMapForallKey
-#endif
+    -- ** Weakening
+  , weakenEquality
+  , weakenOrdering
     -- ** Other
   , unreifyList
   ) where
@@ -108,51 +113,68 @@ import qualified Data.Aeson.Types as Aeson
 import qualified Text.Read as R
 import qualified Web.PathPieces as PP
 
-#if MIN_VERSION_aeson(1,0,0) 
 import qualified Data.Aeson.Encoding as Aeson
 import Data.Aeson (ToJSONKey(..),FromJSONKey(..),
   ToJSONKeyFunction(..),FromJSONKeyFunction(..))
 import Data.Aeson.Internal ((<?>),JSONPathElement(Key,Index))
-#endif
-
--- newtype Exists (f :: k -> *) = Exists { runExists :: forall r. (forall a. f a -> r) -> r }
 
 -- | Hide a type parameter.
 data Exists (f :: k -> Type) = forall a. Exists !(f a)
 
+-- | Hide two type parameters.
 data Exists2 (f :: k -> j -> Type) = forall a b. Exists2 !(f a b)
 
+-- | Hide three type parameters.
 data Exists3 (f :: k -> j -> l -> Type) = forall a b c. Exists3 !(f a b c)
 
-#if MIN_VERSION_aeson(1,0,0) 
+data DependentPair (f :: k -> Type) (g :: k -> Type) =
+  forall a. DependentPair (f a) (g a)
+
+data WitnessedEquality (a :: k) (b :: k) where
+  WitnessedEqualityEqual :: WitnessedEquality a a
+  WitnessedEqualityUnequal :: WitnessedEquality a b
+
+data WitnessedOrdering (a :: k) (b :: k) where
+  WitnessedOrderingLT :: WitnessedOrdering a b
+  WitnessedOrderingEQ :: WitnessedOrdering a a
+  WitnessedOrderingGT :: WitnessedOrdering a b
+
 data ToJSONKeyFunctionForall f
   = ToJSONKeyTextForall !(forall a. f a -> Text) !(forall a. f a -> Aeson.Encoding' Text)
   | ToJSONKeyValueForall !(forall a. f a -> Aeson.Value) !(forall a. f a -> Aeson.Encoding)
 data FromJSONKeyFunctionForall f
   = FromJSONKeyTextParserForall !(forall a. Sing a -> Text -> Aeson.Parser (f a))
   | FromJSONKeyValueForall !(forall a. Sing a -> Aeson.Value -> Aeson.Parser (f a))
-#endif
 
 class EqForall f where
   eqForall :: f a -> f a -> Bool
+
+-- | Variant of 'EqForall' that requires a pi-quantified type.
+class EqForeach f where
+  eqForeach :: Sing a -> f a -> f a -> Bool
 
 class EqForall f => OrdForall f where
   compareForall :: f a -> f a -> Ordering
 
 class EqForall f => EqForallPoly f where
-  eqForallPoly :: f a -> f b -> Bool
-  default eqForallPoly :: TestEquality f => f a -> f b -> Bool
+  eqForallPoly :: f a -> f b -> WitnessedEquality a b
+  default eqForallPoly :: TestEquality f => f a -> f b -> WitnessedEquality a b
   eqForallPoly = defaultEqForallPoly
 
 -- the default method does not work if your data type is a newtype wrapper
 -- over a function, but that should not really ever happen.
 class (OrdForall f, EqForallPoly f) => OrdForallPoly f where
-  compareForallPoly :: f a -> f b -> Ordering
-  default compareForallPoly :: TestEquality f => f a -> f b -> Ordering
-  compareForallPoly = defaultCompareForallPoly
+  compareForallPoly :: f a -> f b -> WitnessedOrdering a b
+
+-- | Variant of 'OrdForall' that requires a pi-quantified type.
+class EqForeach f => OrdForeach f where
+  compareForeach :: Sing a -> f a -> f a -> Ordering
 
 class ShowForall f where
   showsPrecForall :: Int -> f a -> ShowS
+
+class ShowForeach f where
+  showsPrecForeach :: Sing a -> Int -> f a -> ShowS
 
 class ShowForall2 f where
   showsPrecForall2 :: Int -> f a b -> ShowS
@@ -181,7 +203,6 @@ class EqForallPoly2 f where
 class HashableForall f where
   hashWithSaltForall :: Int -> f a -> Int
 
-#if MIN_VERSION_aeson(1,0,0) 
 class ToJSONKeyForall f where
   toJSONKeyForall :: ToJSONKeyFunctionForall f
 
@@ -190,7 +211,6 @@ class FromJSONKeyExists f where
 
 class FromJSONKeyForall f where
   fromJSONKeyForall :: FromJSONKeyFunctionForall f
-#endif
 
 class ToJSONForall f where
   toJSONForall :: f a -> Aeson.Value
@@ -252,20 +272,13 @@ instance EqForall2 (:~:) where
 instance Eq a => EqForall (Const a) where
   eqForall (Const x) (Const y) = x == y
 
-instance Eq a => EqForallPoly (Const a) where
-  eqForallPoly (Const x) (Const y) = x == y
-
 instance Ord a => OrdForall (Const a) where
   compareForall (Const x) (Const y) = compare x y
-
-instance Ord a => OrdForallPoly (Const a) where
-  compareForallPoly (Const x) (Const y) = compare x y
 
 instance Hashable a => HashableForall (Const a) where
   hashWithSaltForall s (Const a) = hashWithSalt s a
 
 
-#if MIN_VERSION_aeson(1,0,0) 
 -- I need to get rid of the ToJSONForall and FromJSONForall constraints
 -- on these two instances.
 instance (ToJSONKeyForall f, ToJSONForall f) => ToJSONKey (Exists f) where
@@ -275,16 +288,15 @@ instance (ToJSONKeyForall f, ToJSONForall f) => ToJSONKey (Exists f) where
 
 instance (FromJSONKeyExists f, FromJSONExists f) => FromJSONKey (Exists f) where
   fromJSONKey = fromJSONKeyExists
-#endif
 
 instance EqForallPoly f => Eq (Exists f) where
-  Exists a == Exists b = eqForallPoly a b
+  Exists a == Exists b = weakenEquality (eqForallPoly a b)
 
 instance EqForallPoly2 f => Eq (Exists2 f) where
   Exists2 a == Exists2 b = eqForallPoly2 a b
 
 instance OrdForallPoly f => Ord (Exists f) where
-  compare (Exists a) (Exists b) = compareForallPoly a b
+  compare (Exists a) (Exists b) = weakenOrdering (compareForallPoly a b)
 
 instance HashableForall f => Hashable (Exists f) where
   hashWithSalt s (Exists a) = hashWithSaltForall s a
@@ -326,13 +338,18 @@ instance (EqForall f, EqForall g) => EqForall (Product f g) where
   eqForall (Pair f1 g1) (Pair f2 g2) = eqForall f1 f2 && eqForall g1 g2
 
 instance (EqForallPoly f, EqForallPoly g) => EqForallPoly (Product f g) where
-  eqForallPoly (Pair f1 g1) (Pair f2 g2) = eqForallPoly f1 f2 && eqForallPoly g1 g2
+  eqForallPoly (Pair f1 g1) (Pair f2 g2) = case eqForallPoly f1 f2 of
+    WitnessedEqualityEqual -> eqForallPoly g1 g2
+    WitnessedEqualityUnequal -> WitnessedEqualityUnequal
 
 instance (OrdForall f, OrdForall g) => OrdForall (Product f g) where
   compareForall (Pair f1 g1) (Pair f2 g2) = mappend (compareForall f1 f2) (compareForall g1 g2)
 
 instance (OrdForallPoly f, OrdForallPoly g) => OrdForallPoly (Product f g) where
-  compareForallPoly (Pair f1 g1) (Pair f2 g2) = mappend (compareForallPoly f1 f2) (compareForallPoly g1 g2)
+  compareForallPoly (Pair f1 g1) (Pair f2 g2) = case compareForallPoly f1 f2 of
+    WitnessedOrderingLT -> WitnessedOrderingLT
+    WitnessedOrderingGT -> WitnessedOrderingGT
+    WitnessedOrderingEQ -> compareForallPoly g1 g2
 
 instance (ShowForall f, ShowForall g) => ShowForall (Product f g) where
   showsPrecForall p (Pair f g) = showParen 
@@ -349,9 +366,6 @@ instance (Aeson.FromJSON1 f, FromJSONForall g) => FromJSONForall (Compose f g) w
 
 instance (Eq1 f, EqForall g) => EqForall (Compose f g) where
   eqForall (Compose x) (Compose y) = liftEq eqForall x y
-
-instance (Eq1 f, EqForallPoly g) => EqForallPoly (Compose f g) where
-  eqForallPoly (Compose x) (Compose y) = liftEq eqForallPoly x y
 
 instance (Show1 f, ShowForall g) => ShowForall (Compose f g) where
   showsPrecForall _ (Compose x) = showString "Compose " . liftShowsPrec showsPrecForall showListForall 11 x
@@ -385,10 +399,10 @@ defaultCompareForallPoly a b = case testEquality a b of
   Nothing -> compare (getTagBox a) (getTagBox b)
   Just Refl -> compareForall a b
 
-defaultEqForallPoly :: (TestEquality f, EqForall f) => f a -> f b -> Bool
+defaultEqForallPoly :: (TestEquality f, EqForall f) => f a -> f b -> WitnessedEquality a b
 defaultEqForallPoly x y = case testEquality x y of
-  Nothing -> False
-  Just Refl -> eqForall x y
+  Nothing -> WitnessedEqualityUnequal
+  Just Refl -> if eqForall x y then WitnessedEqualityEqual else WitnessedEqualityUnequal
 
 getTagBox :: a -> Int
 getTagBox !x = I# (dataToTag# x)
@@ -492,7 +506,6 @@ instance EqForall f => Eq (Apply f a) where
 instance OrdForall f => Ord (Apply f a) where
   compare (Apply a) (Apply b) = compareForall a b
 
-#if MIN_VERSION_aeson(1,0,0) 
 -- | Parse a 'Map' whose key type is higher-kinded. This only creates a valid 'Map'
 --   if the 'OrdForall' instance agrees with the 'Ord' instance.
 parseJSONMapForallKey :: forall f a v. (FromJSONKeyForall f, OrdForall f)
@@ -533,6 +546,33 @@ parseIndexedJSONPair keyParser valParser idx value = p value <?> Index idx
 -- copied from aeson
 parseJSONElemAtIndex :: (Aeson.Value -> Aeson.Parser a) -> Int -> V.Vector Aeson.Value -> Aeson.Parser a
 parseJSONElemAtIndex p idx ary = p (V.unsafeIndex ary idx) <?> Index idx
-#endif
+
+weakenEquality :: WitnessedEquality a b -> Bool
+weakenEquality = \case
+  WitnessedEqualityEqual -> True
+  WitnessedEqualityUnequal -> False
+
+weakenOrdering :: WitnessedOrdering a b -> Ordering
+weakenOrdering = \case
+  WitnessedOrderingGT -> GT
+  WitnessedOrderingEQ -> EQ
+  WitnessedOrderingLT -> LT
+
+instance (EqForallPoly f, ToSing f, EqForeach g) => Eq (DependentPair f g) where
+  DependentPair a1 b1 == DependentPair a2 b2 = case eqForallPoly a1 a2 of
+    WitnessedEqualityUnequal -> False
+    WitnessedEqualityEqual -> eqForeach (toSing a1) b1 b2
+
+instance (OrdForallPoly f, ToSing f, OrdForeach g) => Ord (DependentPair f g) where
+  compare (DependentPair a1 b1) (DependentPair a2 b2) = case compareForallPoly a1 a2 of
+    WitnessedOrderingLT -> LT
+    WitnessedOrderingGT -> GT
+    WitnessedOrderingEQ -> compareForeach (toSing a1) b1 b2
+
+instance (ShowForall f, ToSing f, ShowForeach g) => Show (DependentPair f g) where
+  showsPrec p (DependentPair a b) s = showParen 
+    (p >= 11) 
+    (showString "DependentPair " . showsPrecForall 11 a . showChar ' ' . showsPrecForeach (toSing a) 11 b)
+    s
 
 

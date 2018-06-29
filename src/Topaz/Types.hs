@@ -21,6 +21,9 @@ module Topaz.Types
   , Nest(..)
   , EqHetero(..)
   , TestEqualityHetero(..)
+  , Nat(..)
+  , SingNat(..)
+  , Vector(..)
   , type (++)
   ) where
 
@@ -39,6 +42,22 @@ import qualified Data.Semigroup as SG
 import qualified Data.Aeson as AE
 import qualified Data.Aeson.Types as AET
 import qualified Data.Vector as V
+
+data Nat = Succ Nat | Zero
+
+data SingNat :: Nat -> Type where
+  SingZero :: SingNat 'Zero
+  SingSucc :: SingNat n -> SingNat ('Succ n)
+
+type instance Sing = SingNat
+
+data Vector :: Nat -> Type -> Type where
+  VectorNil :: Vector 'Zero a
+  VectorCons :: a -> Vector n a -> Vector ('Succ n) a
+
+instance Eq a => Eq (Vector n a) where
+  VectorNil == VectorNil = True
+  VectorCons a as == VectorCons b bs = a == b && as == bs
 
 data Elem (rs :: [k]) (r :: k) where
   ElemHere :: Elem (r ': rs) r
