@@ -47,6 +47,7 @@ module Data.Exists
   , SemigroupForall(..)
   , MonoidForall(..)
   , HashableForall(..)
+  , HashableForeach(..)
   , PathPieceForall(..)
   , FromJSONForall(..)
   , FromJSONExists(..)
@@ -202,6 +203,9 @@ class EqForallPoly2 f where
 
 class HashableForall f where
   hashWithSaltForall :: Int -> f a -> Int
+
+class HashableForeach f where
+  hashWithSaltForeach :: Sing a -> Int -> f a -> Int
 
 class ToJSONKeyForall f where
   toJSONKeyForall :: ToJSONKeyFunctionForall f
