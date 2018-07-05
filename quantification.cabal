@@ -1,5 +1,5 @@
 name: quantification
-version: 0.4
+version: 0.4.1
 synopsis: Rage against the quantification
 description: Data types and typeclasses to deal with universally and existentially quantified types
 homepage: https://github.com/andrewthad/quantification#readme

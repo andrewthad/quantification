@@ -13,6 +13,7 @@
 {-# LANGUAGE TypeFamilyDependencies #-}
 {-# LANGUAGE TypeInType #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE UnboxedTuples #-}
 
 {-# OPTIONS_GHC -Wall #-}
 
@@ -58,6 +59,8 @@ module Data.Exists
   , FromJSONKeyExists(..)
   , FromJSONKeyForall(..)
   , StorableForall(..)
+  , StorableForallPhantom(..)
+  , PrimForallPhantom(..)
     -- * Higher Rank Classes
   , EqForall2(..)
   , EqForallPoly2(..)
@@ -101,7 +104,7 @@ import Data.Functor.Sum (Sum(..))
 import Data.Functor.Product (Product(..))
 import Data.Functor.Compose (Compose(..))
 import GHC.Int (Int(..))
-import GHC.Prim (dataToTag#)
+import GHC.Exts (dataToTag#,State#,Int#,Proxy#,Addr#,ByteArray#,MutableByteArray#)
 import Foreign.Ptr (Ptr)
 import Data.Kind (Type)
 import Data.Map.Strict (Map)
@@ -245,6 +248,28 @@ class StorableForall (f :: k -> Type) where
   pokeForall :: Ptr (f a) -> f a -> IO ()
   sizeOfFunctorForall :: f a -> Int
   sizeOfForall :: forall (a :: k). Proxy f -> Sing a -> Int
+
+-- | This is like 'StorableForall' except that the type constructor
+-- must ignore its argument (for purposes of representation).
+class StorableForallPhantom (f :: k -> Type) where
+  peekForallPhantom :: Ptr (f a) -> IO (f a)
+  pokeForallPhantom :: Ptr (f a) -> f a -> IO ()
+  sizeOfForallPhantom :: Proxy f -> Int
+
+-- | Be careful with this typeclass. It is more unsafe than 'Prim'.
+-- With 'writeByteArray#' and 'readByteArray#', one can implement
+-- @unsafeCoerce@.
+class PrimForallPhantom (f :: k -> Type) where
+  sizeOfForallPhantom# :: Proxy# f -> Int#
+  alignmentForallPhantom# :: Proxy# f -> Int#
+  indexByteArrayForallPhantom# :: ByteArray# -> Int# -> f a
+  readByteArrayForallPhantom# :: MutableByteArray# s -> Int# -> State# s -> (# State# s, f a #)
+  writeByteArrayForallPhantom# :: MutableByteArray# s -> Int# -> f a -> State# s -> State# s
+  setByteArrayForallPhantom# :: MutableByteArray# s -> Int# -> Int# -> f a -> State# s -> State# s
+  indexOffAddrForallPhantom# :: Addr# -> Int# -> f a
+  readOffAddrForallPhantom# :: Addr# -> Int# -> State# s -> (# State# s, f a #)
+  writeOffAddrForallPhantom# :: Addr# -> Int# -> f a -> State# s -> State# s
+  setOffAddrForallPhantom# :: Addr# -> Int# -> Int# -> f a -> State# s -> State# s
 
 --------------------
 -- Instances Below
