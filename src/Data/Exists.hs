@@ -89,6 +89,8 @@ module Data.Exists
     -- ** Weakening
   , weakenEquality
   , weakenOrdering
+  , strengthenOrdering
+  , strengthenUnequalOrdering
     -- ** Other
   , unreifyList
   ) where
@@ -586,6 +588,21 @@ weakenOrdering = \case
   WitnessedOrderingGT -> GT
   WitnessedOrderingEQ -> EQ
   WitnessedOrderingLT -> LT
+
+-- | Given that we already know two types are equal, promote an 'Ordering'.
+strengthenOrdering :: Ordering -> WitnessedOrdering a a                                
+strengthenOrdering = \case
+  LT -> WitnessedOrderingLT                                                    
+  EQ -> WitnessedOrderingEQ                                                              
+  GT -> WitnessedOrderingGT                                                                
+
+-- | Given that we already know two types to be unequal, promote an 'Ordering'.
+-- The argument should not be @EQ@.
+strengthenUnequalOrdering :: Ordering -> WitnessedOrdering a b                   
+strengthenUnequalOrdering = \case                                                  
+  LT -> WitnessedOrderingLT 
+  EQ -> WitnessedOrderingLT -- this case should not happen                                          
+  GT -> WitnessedOrderingGT               
 
 instance (EqForallPoly f, ToSing f, EqForeach g) => Eq (DependentPair f g) where
   DependentPair a1 b1 == DependentPair a2 b2 = case eqForallPoly a1 a2 of
