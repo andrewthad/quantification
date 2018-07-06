@@ -160,18 +160,19 @@ instance OrdForall f => OrdForall (Rec f) where
     mappend (compareForall a b) (compareForall as bs)
 
 instance SemigroupForall f => Semigroup (Rec f as) where
-  (<>) = recZipWith sappendForall
+  (<>) = recZipWith appendForall
 
-instance (MonoidForall f, Reify as) => Monoid (Rec f as) where
-  mempty = recMap memptyForall (singListToRec reify)
-  mappend = recZipWith sappendForall
+instance SemigroupForeach f => SemigroupForeach (Rec f) where
+  appendForeach SingListNil RecNil RecNil = RecNil
+  appendForeach (SingListCons s ss) (RecCons x xs) (RecCons y ys) =
+    RecCons (appendForeach s x y) (appendForeach ss xs ys)
 
-instance MonoidForall f => MonoidForall (Rec f) where
-  memptyForall SingListNil = RecNil
-  memptyForall (SingListCons s ss) = RecCons (memptyForall s) (memptyForall ss)
+instance MonoidForeach f => MonoidForeach (Rec f) where
+  memptyForeach SingListNil = RecNil
+  memptyForeach (SingListCons s ss) = RecCons (memptyForeach s) (memptyForeach ss)
 
 instance SemigroupForall f => SemigroupForall (Rec f) where
-  sappendForall = recZipWith sappendForall
+  appendForall = recZipWith appendForall
 
 instance ToJSONForall f => AE.ToJSON (Rec f as) where
   toJSON = toJSONForall
@@ -183,45 +184,45 @@ instance ToJSONForall f => ToJSONForall (Rec f) where
     go RecNil = []
     go (RecCons x xs) = toJSONForall x : go xs
 
-instance (FromJSONForall f, Reify as) => AE.FromJSON (Rec f as) where
-  parseJSON = parseJSONForall reify
+instance (FromJSONForeach f, Reify as) => AE.FromJSON (Rec f as) where
+  parseJSON = parseJSONForeach reify
 
-instance FromJSONForall f => FromJSONForall (Rec f) where
-  parseJSONForall s0 = AE.withArray "Rec" $ \vs -> do
+instance FromJSONForeach f => FromJSONForeach (Rec f) where
+  parseJSONForeach s0 = AE.withArray "Rec" $ \vs -> do
     let go :: SingList as -> Int -> AET.Parser (Rec f as)
         go SingListNil !ix = if V.length vs == ix
           then return RecNil
           else fail "too many elements in array"
         go (SingListCons s ss) !ix = if ix < V.length vs
           then do
-            r <- parseJSONForall s (vs V.! ix)
+            r <- parseJSONForeach s (vs V.! ix)
             rs <- go ss (ix + 1)
             return (RecCons r rs)
           else fail "not enough elements in array"
     go s0 0
 
-instance StorableForall f => StorableForall (Rec f) where
-  sizeOfFunctorForall RecNil = 0
-  sizeOfFunctorForall (RecCons r rs) =
-    sizeOfFunctorForall r + sizeOfFunctorForall rs
-  sizeOfForall _ SingListNil = 0
-  sizeOfForall _ (SingListCons s ss) =
-    sizeOfForall (Proxy :: Proxy f) s + sizeOfForall (Proxy :: Proxy (Rec f)) ss
-  peekForall SingListNil _ = return RecNil
-  peekForall (SingListCons s ss) ptr = do
-    r <- peekForall s (castPtr ptr)
-    rs <- peekForall ss (plusPtr ptr (sizeOfForall (Proxy :: Proxy f) s))
+instance (StorableForeach f, ToSing f) => StorableForeach (Rec f) where
+  -- sizeOfFunctorForall RecNil = 0
+  -- sizeOfFunctorForall (RecCons r rs) =
+  --   sizeOfFunctorForall r + sizeOfFunctorForall rs
+  sizeOfForeach _ SingListNil = 0
+  sizeOfForeach _ (SingListCons s ss) =
+    sizeOfForeach (Proxy :: Proxy f) s + sizeOfForeach (Proxy :: Proxy (Rec f)) ss
+  peekForeach SingListNil _ = return RecNil
+  peekForeach (SingListCons s ss) ptr = do
+    r <- peekForeach s (castPtr ptr)
+    rs <- peekForeach ss (plusPtr ptr (sizeOfForeach (Proxy :: Proxy f) s))
     return (RecCons r rs)
-  pokeForall _ RecNil = return ()
-  pokeForall ptr (RecCons r rs) = do
-    pokeForall (castPtr ptr) r
-    pokeForall (plusPtr ptr (sizeOfFunctorForall r)) rs
+  pokeForeach _ _ RecNil = return ()
+  pokeForeach (SingListCons s ss) ptr (RecCons r rs) = do
+    pokeForeach s (castPtr ptr) r
+    pokeForeach ss (plusPtr ptr (sizeOfForeach (Proxy :: Proxy f) (toSing r))) rs
 
-instance (StorableForall f, Reify as) => Storable (Rec f as) where
-  sizeOf _ = sizeOfForall (Proxy :: Proxy (Rec f)) (reify :: SingList as)
+instance (StorableForeach f, ToSing f, Reify as) => Storable (Rec f as) where
+  sizeOf _ = sizeOfForeach (Proxy :: Proxy (Rec f)) (reify :: SingList as)
   alignment _ = sizeOf (undefined :: Rec f as)
-  poke = pokeForall
-  peek = peekForall (reify :: SingList as)
+  poke = pokeForeach (reify :: SingList as)
+  peek = peekForeach (reify :: SingList as)
 
 instance FromJSONExists f => FromJSONExists (Rec f) where
   parseJSONExists = AE.withArray "Rec" $ \vs -> 
@@ -232,16 +233,8 @@ instance FromJSONExists f => FromJSONExists (Rec f) where
       Exists r <- parseJSONExists v :: AET.Parser (Exists g)
       return (Exists (RecCons r rs))
 
-singListToRec :: SingList as -> Rec Sing as
-singListToRec SingListNil = RecNil
-singListToRec (SingListCons r rs) = RecCons r (singListToRec rs)
-
 recZipWith :: (forall x. f x -> g x -> h x) -> Rec f rs -> Rec g rs -> Rec h rs
 recZipWith _ RecNil RecNil = RecNil
 recZipWith f (RecCons a as) (RecCons b bs) =
   RecCons (f a b) (recZipWith f as bs)
-
-recMap :: (forall x. f x -> g x) -> Rec f as -> Rec g as
-recMap _ RecNil = RecNil
-recMap f (RecCons x xs) = RecCons (f x) (recMap f xs)
 

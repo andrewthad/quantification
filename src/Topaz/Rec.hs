@@ -34,12 +34,9 @@ module Topaz.Rec
 
 import Prelude hiding (map,zipWith,foldMap,traverse)
 import Topaz.Types (Elem(..),type (++),Rec(..))
-import Topaz.Types (Elem(..),Rec(..))
 import Data.Exists
-import Data.Proxy (Proxy(..))
 import Data.Semigroup (Semigroup)
 import qualified Data.Semigroup as SG
-import qualified Data.Vector as V
 
 map :: (forall x. f x -> g x) -> Rec f as -> Rec g as
 map _ RecNil = RecNil

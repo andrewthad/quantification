@@ -18,10 +18,11 @@
 {-# OPTIONS_GHC -Wall #-}
 
 {-| Data types and type classes for working with existentially quantified
-    values. In the event that Quantified Class Constraints ever land in GHC,
-    this package will be considered obsolete. The benefit that most of the
-    typeclasses in this module provide is that they help populate the instances
-    of 'Exists'.
+    values. When Quantified Class Constraints ever land in GHC 8.6,
+    the @BarForall@ classes will be considered obsolete. When Dependent
+    Haskell lands, the @BarForeach@ classes will also be obsolete.
+    The benefit that most of the typeclasses in this module provide is
+    that they help populate the instances of 'Exists' and @Rec@.
 -}
 
 module Data.Exists
@@ -44,23 +45,26 @@ module Data.Exists
   , ShowForeach(..)
   , ReadForall(..)
   , EnumForall(..)
-  , BoundedForall(..)
+  , EnumExists(..)
+  , BoundedExists(..)
   , SemigroupForall(..)
+  , SemigroupForeach(..)
   , MonoidForall(..)
+  , MonoidForeach(..)
   , HashableForall(..)
   , HashableForeach(..)
-  , PathPieceForall(..)
-  , FromJSONForall(..)
+  , PathPieceExists(..)
+  , FromJSONForeach(..)
   , FromJSONExists(..)
   , ToJSONForall(..)
   , ToJSONKeyFunctionForall(..)
-  , FromJSONKeyFunctionForall(..)
+  , FromJSONKeyFunctionForeach(..)
   , ToJSONKeyForall(..)
   , FromJSONKeyExists(..)
-  , FromJSONKeyForall(..)
+  , FromJSONKeyForeach(..)
+  , StorableForeach(..)
   , StorableForall(..)
-  , StorableForallPhantom(..)
-  , PrimForallPhantom(..)
+  , PrimForall(..)
     -- * Higher Rank Classes
   , EqForall2(..)
   , EqForallPoly2(..)
@@ -85,7 +89,7 @@ module Data.Exists
     -- ** Defaulting
   , defaultEqForallPoly
   , defaultCompareForallPoly
-  , parseJSONMapForallKey
+  , parseJSONMapForeachKey
     -- ** Weakening
   , weakenEquality
   , weakenOrdering
@@ -148,9 +152,9 @@ data WitnessedOrdering (a :: k) (b :: k) where
 data ToJSONKeyFunctionForall f
   = ToJSONKeyTextForall !(forall a. f a -> Text) !(forall a. f a -> Aeson.Encoding' Text)
   | ToJSONKeyValueForall !(forall a. f a -> Aeson.Value) !(forall a. f a -> Aeson.Encoding)
-data FromJSONKeyFunctionForall f
-  = FromJSONKeyTextParserForall !(forall a. Sing a -> Text -> Aeson.Parser (f a))
-  | FromJSONKeyValueForall !(forall a. Sing a -> Aeson.Value -> Aeson.Parser (f a))
+data FromJSONKeyFunctionForeach f
+  = FromJSONKeyTextParserForeach !(forall a. Sing a -> Text -> Aeson.Parser (f a))
+  | FromJSONKeyValueForeach !(forall a. Sing a -> Aeson.Value -> Aeson.Parser (f a))
 
 class EqForall f where
   eqForall :: f a -> f a -> Bool
@@ -218,60 +222,66 @@ class ToJSONKeyForall f where
 class FromJSONKeyExists f where
   fromJSONKeyExists :: FromJSONKeyFunction (Exists f)
 
-class FromJSONKeyForall f where
-  fromJSONKeyForall :: FromJSONKeyFunctionForall f
+class FromJSONKeyForeach f where
+  fromJSONKeyForeach :: FromJSONKeyFunctionForeach f
 
 class ToJSONForall f where
   toJSONForall :: f a -> Aeson.Value
 
-class FromJSONForall f where
-  parseJSONForall :: Sing a -> Aeson.Value -> Aeson.Parser (f a)
+class FromJSONForeach f where
+  parseJSONForeach :: Sing a -> Aeson.Value -> Aeson.Parser (f a)
 
 class FromJSONExists f where
   parseJSONExists :: Aeson.Value -> Aeson.Parser (Exists f)
 
 class EnumForall f where
-  toEnumForall :: Int -> Exists f
+  toEnumForall :: Int -> f a
   fromEnumForall :: f a -> Int
 
-class BoundedForall f where
-  minBoundForall :: Exists f
-  maxBoundForall :: Exists f
+class EnumExists f where
+  toEnumExists :: Int -> Exists f
+  fromEnumExists :: Exists f -> Int
 
-class PathPieceForall f where
+class BoundedExists f where
+  minBoundExists :: Exists f
+  maxBoundExists :: Exists f
+
+class PathPieceExists f where
   fromPathPieceForall :: Text -> Maybe (Exists f)
-  toPathPieceForall :: f a -> Text
+  toPathPieceForall :: Exists f -> Text
+
+class SemigroupForeach f where
+  appendForeach :: Sing a -> f a -> f a -> f a
 
 class SemigroupForall f where
-  sappendForall :: f a -> f a -> f a
+  appendForall :: f a -> f a -> f a
 
-class StorableForall (f :: k -> Type) where
-  peekForall :: Sing a -> Ptr (f a) -> IO (f a)
-  pokeForall :: Ptr (f a) -> f a -> IO ()
-  sizeOfFunctorForall :: f a -> Int
-  sizeOfForall :: forall (a :: k). Proxy f -> Sing a -> Int
+class StorableForeach (f :: k -> Type) where
+  peekForeach :: Sing a -> Ptr (f a) -> IO (f a)
+  pokeForeach :: Sing a -> Ptr (f a) -> f a -> IO ()
+  sizeOfForeach :: forall (a :: k). Proxy f -> Sing a -> Int
 
 -- | This is like 'StorableForall' except that the type constructor
 -- must ignore its argument (for purposes of representation).
-class StorableForallPhantom (f :: k -> Type) where
-  peekForallPhantom :: Ptr (f a) -> IO (f a)
-  pokeForallPhantom :: Ptr (f a) -> f a -> IO ()
-  sizeOfForallPhantom :: Proxy f -> Int
+class StorableForall (f :: k -> Type) where
+  peekForall :: Ptr (f a) -> IO (f a)
+  pokeForall :: Ptr (f a) -> f a -> IO ()
+  sizeOfForall :: Proxy f -> Int
 
 -- | Be careful with this typeclass. It is more unsafe than 'Prim'.
 -- With 'writeByteArray#' and 'readByteArray#', one can implement
 -- @unsafeCoerce@.
-class PrimForallPhantom (f :: k -> Type) where
-  sizeOfForallPhantom# :: Proxy# f -> Int#
-  alignmentForallPhantom# :: Proxy# f -> Int#
-  indexByteArrayForallPhantom# :: ByteArray# -> Int# -> f a
-  readByteArrayForallPhantom# :: MutableByteArray# s -> Int# -> State# s -> (# State# s, f a #)
-  writeByteArrayForallPhantom# :: MutableByteArray# s -> Int# -> f a -> State# s -> State# s
-  setByteArrayForallPhantom# :: MutableByteArray# s -> Int# -> Int# -> f a -> State# s -> State# s
-  indexOffAddrForallPhantom# :: Addr# -> Int# -> f a
-  readOffAddrForallPhantom# :: Addr# -> Int# -> State# s -> (# State# s, f a #)
-  writeOffAddrForallPhantom# :: Addr# -> Int# -> f a -> State# s -> State# s
-  setOffAddrForallPhantom# :: Addr# -> Int# -> Int# -> f a -> State# s -> State# s
+class PrimForall (f :: k -> Type) where
+  sizeOfForall# :: Proxy# f -> Int#
+  alignmentForall# :: Proxy# f -> Int#
+  indexByteArrayForall# :: ByteArray# -> Int# -> f a
+  readByteArrayForall# :: MutableByteArray# s -> Int# -> State# s -> (# State# s, f a #)
+  writeByteArrayForall# :: MutableByteArray# s -> Int# -> f a -> State# s -> State# s
+  setByteArrayForall# :: MutableByteArray# s -> Int# -> Int# -> f a -> State# s -> State# s
+  indexOffAddrForall# :: Addr# -> Int# -> f a
+  readOffAddrForall# :: Addr# -> Int# -> State# s -> (# State# s, f a #)
+  writeOffAddrForall# :: Addr# -> Int# -> f a -> State# s -> State# s
+  setOffAddrForall# :: Addr# -> Int# -> Int# -> f a -> State# s -> State# s
 
 --------------------
 -- Instances Below
@@ -290,7 +300,7 @@ instance ReadForall Proxy where
   readPrecForall = fmap Exists R.readPrec 
 
 instance SemigroupForall Proxy where
-  sappendForall _ _ = Proxy 
+  appendForall _ _ = Proxy 
 
 instance EqForall ((:~:) a) where
   eqForall Refl Refl = True
@@ -353,16 +363,16 @@ instance ReadForall f => Read (Exists f) where
     R.Ident "Exists" <- R.lexP
     R.step readPrecForall
     
-instance EnumForall f => Enum (Exists f) where
-  fromEnum (Exists x) = fromEnumForall x
-  toEnum = toEnumForall
+instance EnumExists f => Enum (Exists f) where
+  fromEnum = fromEnumExists
+  toEnum = toEnumExists
 
-instance BoundedForall f => Bounded (Exists f) where
-  minBound = minBoundForall
-  maxBound = maxBoundForall
+instance BoundedExists f => Bounded (Exists f) where
+  minBound = minBoundExists
+  maxBound = maxBoundExists
 
-instance PathPieceForall f => PP.PathPiece (Exists f) where
-  toPathPiece (Exists f) = toPathPieceForall f
+instance PathPieceExists f => PP.PathPiece (Exists f) where
+  toPathPiece = toPathPieceForall
   fromPathPiece = fromPathPieceForall
 
 instance (EqForall f, EqForall g) => EqForall (Product f g) where
@@ -390,10 +400,10 @@ instance (ShowForall f, ShowForall g) => ShowForall (Product f g) where
 instance (Aeson.ToJSON1 f, ToJSONForall g) => ToJSONForall (Compose f g) where
   toJSONForall (Compose x) = Aeson.liftToJSON toJSONForall (Aeson.toJSON . map toJSONForall) x
 
-instance (Aeson.FromJSON1 f, FromJSONForall g) => FromJSONForall (Compose f g) where
-  parseJSONForall s = fmap Compose . Aeson.liftParseJSON
-    (parseJSONForall s)
-    (Aeson.withArray "Compose" (fmap V.toList . V.mapM (parseJSONForall s)))
+instance (Aeson.FromJSON1 f, FromJSONForeach g) => FromJSONForeach (Compose f g) where
+  parseJSONForeach s = fmap Compose . Aeson.liftParseJSON
+    (parseJSONForeach s)
+    (Aeson.withArray "Compose" (fmap V.toList . V.mapM (parseJSONForeach s)))
 
 instance (Eq1 f, EqForall g) => EqForall (Compose f g) where
   eqForall (Compose x) (Compose y) = liftEq eqForall x y
@@ -481,8 +491,11 @@ eqSingList (SingListCons a as) (SingListCons b bs) = case eqSing a b of
     Nothing -> Nothing
   Nothing -> Nothing
 
+class SemigroupForeach f => MonoidForeach f where
+  memptyForeach :: Sing a -> f a
+
 class SemigroupForall f => MonoidForall f where
-  memptyForall :: Sing a -> f a
+  memptyForall :: f a
 
 data SingList :: [k] -> Type where
   SingListNil :: SingList '[]
@@ -518,13 +531,13 @@ instance (ToJSONForall f, ToJSONSing k) => ToJSON (Some (f :: k -> Type)) where
 class FromJSONSing k where
   parseJSONSing :: Aeson.Value -> Aeson.Parser (Exists (Sing :: k -> Type))
 
-instance (FromJSONForall f, FromJSONSing k) => FromJSON (Some (f :: k -> Type)) where
+instance (FromJSONForeach f, FromJSONSing k) => FromJSON (Some (f :: k -> Type)) where
   parseJSON = Aeson.withArray "Some" $ \v -> if V.length v == 2
     then do
       let x = V.unsafeIndex v 0
           y = V.unsafeIndex v 1
       Exists s <- parseJSONSing x :: Aeson.Parser (Exists (Sing :: k -> Type))
-      val <- parseJSONForall s y
+      val <- parseJSONForeach s y
       return (Some s val)
     else fail "array of length 2 expected"
 
@@ -539,13 +552,13 @@ instance OrdForall f => Ord (Apply f a) where
 
 -- | Parse a 'Map' whose key type is higher-kinded. This only creates a valid 'Map'
 --   if the 'OrdForall' instance agrees with the 'Ord' instance.
-parseJSONMapForallKey :: forall f a v. (FromJSONKeyForall f, OrdForall f)
+parseJSONMapForeachKey :: forall f a v. (FromJSONKeyForeach f, OrdForall f)
   => (Aeson.Value -> Aeson.Parser v) 
   -> Sing a
   -> Aeson.Value
   -> Aeson.Parser (Map (f a) v)
-parseJSONMapForallKey valueParser s obj = case fromJSONKeyForall of
-  FromJSONKeyTextParserForall f -> Aeson.withObject "Map k v"
+parseJSONMapForeachKey valueParser s obj = case fromJSONKeyForeach of
+  FromJSONKeyTextParserForeach f -> Aeson.withObject "Map k v"
     ( fmap (M.mapKeysMonotonic getApply) . HM.foldrWithKey
       (\k v m -> M.insert
         <$> (coerce (f s k :: Aeson.Parser (f a)) :: Aeson.Parser (Apply f a)) <?> Key k
@@ -553,7 +566,7 @@ parseJSONMapForallKey valueParser s obj = case fromJSONKeyForall of
         <*> m
       ) (pure M.empty)
     ) obj
-  FromJSONKeyValueForall f -> Aeson.withArray "Map k v"
+  FromJSONKeyValueForeach f -> Aeson.withArray "Map k v"
     ( fmap (M.mapKeysMonotonic getApply . M.fromList)
     . (coerce :: Aeson.Parser [(f a, v)] -> Aeson.Parser [(Apply f a, v)])
     . TRV.sequence
