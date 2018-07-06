@@ -93,6 +93,7 @@ module Data.Exists
     -- ** Weakening
   , weakenEquality
   , weakenOrdering
+  , strengthenEquality
   , strengthenOrdering
   , strengthenUnequalOrdering
     -- ** Other
@@ -606,6 +607,11 @@ weakenOrdering = \case
   WitnessedOrderingGT -> GT
   WitnessedOrderingEQ -> EQ
   WitnessedOrderingLT -> LT
+
+strengthenEquality :: Bool -> WitnessedEquality a a
+strengthenEquality = \case
+  True -> WitnessedEqualityEqual
+  False -> WitnessedEqualityUnequal
 
 -- | Given that we already know two types are equal, promote an 'Ordering'.
 strengthenOrdering :: Ordering -> WitnessedOrdering a a                                
