@@ -137,8 +137,15 @@ data Exists2 (f :: k -> j -> Type) = forall a b. Exists2 !(f a b)
 -- | Hide three type parameters.
 data Exists3 (f :: k -> j -> l -> Type) = forall a b c. Exists3 !(f a b c)
 
+-- | A pair in which the type of the second element can only
+--   be discovered by looking at the first element. The type
+--   instance does not enforce this, but all of its typeclass
+--   instances make this assumption.
 data DependentPair (f :: k -> Type) (g :: k -> Type) =
   forall a. DependentPair (f a) (g a)
+
+-- | A dependent pair in which the first element is a singleton.
+data Some (f :: k -> Type) = forall a. Some !(Sing a) !(f a)
 
 data WitnessedEquality (a :: k) (b :: k) where
   WitnessedEqualityEqual :: WitnessedEquality a a
@@ -511,8 +518,6 @@ unreifyList :: forall (as :: [k]) b. Unreify k
   -> b
 unreifyList SingListNil b = b
 unreifyList (SingListCons s ss) b = unreify s (unreifyList ss b)
-
-data Some (f :: k -> Type) = forall a. Some !(Sing a) !(f a)
 
 instance (EqForall f, EqSing k) => Eq (Some (f :: k -> Type)) where 
   Some s1 v1 == Some s2 v2 = case eqSing s1 s2 of
