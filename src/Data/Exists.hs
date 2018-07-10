@@ -57,6 +57,7 @@ module Data.Exists
   , FromJSONForeach(..)
   , FromJSONExists(..)
   , ToJSONForall(..)
+  , ToJSONForeach(..)
   , ToJSONKeyFunctionForall(..)
   , FromJSONKeyFunctionForeach(..)
   , ToJSONKeyForall(..)
@@ -236,6 +237,9 @@ class FromJSONKeyForeach f where
 class ToJSONForall f where
   toJSONForall :: f a -> Aeson.Value
 
+class ToJSONForeach f where
+  toJSONForeach :: Sing a -> f a -> Aeson.Value
+
 class FromJSONForeach f where
   parseJSONForeach :: Sing a -> Aeson.Value -> Aeson.Parser (f a)
 
@@ -328,7 +332,7 @@ instance Hashable a => HashableForall (Const a) where
   hashWithSaltForall s (Const a) = hashWithSalt s a
 
 
--- I need to get rid of the ToJSONForall and FromJSONForall constraints
+-- I need to get rid of the ToJSONForall and FromJSONForeach constraints
 -- on these two instances.
 instance (ToJSONKeyForall f, ToJSONForall f) => ToJSONKey (Exists f) where
   toJSONKey = case toJSONKeyForall of
