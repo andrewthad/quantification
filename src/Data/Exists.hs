@@ -78,6 +78,8 @@ module Data.Exists
   , Unreify(..)
     -- * Sing Type Classes
   , EqSing(..)
+  , OrdSing(..)
+  , ShowSing(..)
   , ToJSONSing(..)
   , FromJSONSing(..)
   , ToSing(..)
@@ -490,6 +492,12 @@ instance Reify a => Reify ('Just a) where
 class EqSing k where
   eqSing :: forall (a :: k) (b :: k). Sing a -> Sing b -> Maybe (a :~: b)
 
+class EqSing k => OrdSing k where
+  compareSing :: forall (a :: k) (b :: k). Sing a -> Sing b -> WitnessedOrdering a b
+
+class ShowSing k where
+  showsPrecSing :: forall (a :: k). Int -> Sing a -> ShowS
+
 instance EqSing a => EqSing [a] where
   eqSing = eqSingList
 
@@ -524,10 +532,23 @@ unreifyList :: forall (as :: [k]) b. Unreify k
 unreifyList SingListNil b = b
 unreifyList (SingListCons s ss) b = unreify s (unreifyList ss b)
 
-instance (EqForall f, EqSing k) => Eq (Some (f :: k -> Type)) where 
+instance (EqForeach f, EqSing k) => Eq (Some (f :: k -> Type)) where 
   Some s1 v1 == Some s2 v2 = case eqSing s1 s2 of
-    Just Refl -> eqForall v1 v2
+    Just Refl -> eqForeach s1 v1 v2
     Nothing -> False
+
+instance (OrdForeach f, OrdSing k) => Ord (Some (f :: k -> Type)) where 
+  compare (Some s1 v1) (Some s2 v2) = case compareSing s1 s2 of
+    WitnessedOrderingEQ -> compareForeach s1 v1 v2
+    WitnessedOrderingLT -> LT
+    WitnessedOrderingGT -> GT
+
+instance (ShowForeach f, ShowSing k) => Show (Some (f :: k -> Type)) where
+  showsPrec p (Some s a) = showParen (p >= 11)
+    $ showString "Sing "
+    . showsPrecSing 11 s
+    . showChar ' '
+    . showsPrecForeach s 11 a
 
 class ToSing (f :: k -> Type) where
   toSing :: f a -> Sing a
@@ -535,8 +556,8 @@ class ToSing (f :: k -> Type) where
 class ToJSONSing k where
   toJSONSing :: forall (a :: k). Sing a -> Aeson.Value
 
-instance (ToJSONForall f, ToJSONSing k) => ToJSON (Some (f :: k -> Type)) where
-  toJSON (Some s v) = toJSON [toJSONSing s, toJSONForall v]
+instance (ToJSONForeach f, ToJSONSing k) => ToJSON (Some (f :: k -> Type)) where
+  toJSON (Some s v) = toJSON [toJSONSing s, toJSONForeach s v]
 
 class FromJSONSing k where
   parseJSONSing :: Aeson.Value -> Aeson.Parser (Exists (Sing :: k -> Type))
