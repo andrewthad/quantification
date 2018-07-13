@@ -70,6 +70,7 @@ module Data.Exists
   , EqForall2(..)
   , EqForallPoly2(..)
   , ShowForall2(..)
+  , ShowForeach2(..)
     -- * More Type Classes
   , Sing
   , SingList(..)
@@ -199,6 +200,9 @@ class ShowForeach f where
 
 class ShowForall2 f where
   showsPrecForall2 :: Int -> f a b -> ShowS
+
+class ShowForeach2 f where
+  showsPrecForeach2 :: Sing a -> Sing b -> Int -> f a b -> ShowS
 
 showsForall :: ShowForall f => f a -> ShowS
 showsForall = showsPrecForall 0
