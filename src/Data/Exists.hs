@@ -18,7 +18,7 @@
 {-# OPTIONS_GHC -Wall #-}
 
 {-| Data types and type classes for working with existentially quantified
-    values. When Quantified Class Constraints ever land in GHC 8.6,
+    values. When Quantified Class Constraints land in GHC 8.6,
     the @BarForall@ classes will be considered obsolete. When Dependent
     Haskell lands, the @BarForeach@ classes will also be obsolete.
     The benefit that most of the typeclasses in this module provide is
