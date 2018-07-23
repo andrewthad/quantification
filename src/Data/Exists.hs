@@ -104,34 +104,35 @@ module Data.Exists
   , unreifyList
   ) where
 
-import Data.Proxy (Proxy(..))
-import Data.Type.Equality ((:~:)(Refl),TestEquality(..))
 import Control.Applicative (Const(..))
 import Data.Aeson (ToJSON(..),FromJSON(..))
-import Data.Hashable (Hashable(..))
-import Data.Text (Text)
+import Data.Aeson (ToJSONKey(..),FromJSONKey(..))
+import Data.Aeson (ToJSONKeyFunction(..),FromJSONKeyFunction(..))
+import Data.Aeson.Internal ((<?>),JSONPathElement(Key,Index))
+import Data.Coerce (coerce)
 import Data.Functor.Classes (Eq1(..),Show1(..))
-import Data.Functor.Sum (Sum(..))
-import Data.Functor.Product (Product(..))
 import Data.Functor.Compose (Compose(..))
-import GHC.Int (Int(..))
-import GHC.Exts (dataToTag#,State#,Int#,Proxy#,Addr#,ByteArray#,MutableByteArray#)
-import Foreign.Ptr (Ptr)
+import Data.Functor.Product (Product(..))
+import Data.Functor.Sum (Sum(..))
+import Data.Hashable (Hashable(..))
 import Data.Kind (Type)
 import Data.Map.Strict (Map)
-import Data.Coerce (coerce)
-import qualified Data.Traversable as TRV
-import qualified Data.Map.Strict as M
-import qualified Data.HashMap.Strict as HM
-import qualified Data.Vector as V
-import qualified Data.Aeson.Types as Aeson
-import qualified Text.Read as R
-import qualified Web.PathPieces as PP
+import Data.Monoid.Lifted (Semigroup1(..))
+import Data.Proxy (Proxy(..))
+import Data.Text (Text)
+import Data.Type.Equality ((:~:)(Refl),TestEquality(..))
+import Foreign.Ptr (Ptr)
+import GHC.Exts (dataToTag#,State#,Int#,Proxy#,Addr#,ByteArray#,MutableByteArray#)
+import GHC.Int (Int(..))
 
 import qualified Data.Aeson.Encoding as Aeson
-import Data.Aeson (ToJSONKey(..),FromJSONKey(..),
-  ToJSONKeyFunction(..),FromJSONKeyFunction(..))
-import Data.Aeson.Internal ((<?>),JSONPathElement(Key,Index))
+import qualified Data.Aeson.Types as Aeson
+import qualified Data.HashMap.Strict as HM
+import qualified Data.Map.Strict as M
+import qualified Data.Traversable as TRV
+import qualified Data.Vector as V
+import qualified Text.Read as R
+import qualified Web.PathPieces as PP
 
 -- | Hide a type parameter.
 data Exists (f :: k -> Type) = forall a. Exists !(f a)
@@ -428,6 +429,9 @@ instance (Eq1 f, EqForall g) => EqForall (Compose f g) where
 
 instance (Show1 f, ShowForall g) => ShowForall (Compose f g) where
   showsPrecForall _ (Compose x) = showString "Compose " . liftShowsPrec showsPrecForall showListForall 11 x
+
+instance (Semigroup1 f, SemigroupForeach g) => SemigroupForeach (Compose f g) where
+  appendForeach s (Compose x) (Compose y) = Compose (liftAppend (appendForeach s) x y)
 
 showListForall :: ShowForall f => [f a] -> ShowS
 showListForall = showList__ showsForall
