@@ -61,6 +61,7 @@ module Data.Exists
   , ToJSONKeyFunctionForall(..)
   , FromJSONKeyFunctionForeach(..)
   , ToJSONKeyForall(..)
+  , ToJSONKeyForeach(..)
   , FromJSONKeyExists(..)
   , FromJSONKeyForeach(..)
   , StorableForeach(..)
@@ -94,6 +95,7 @@ module Data.Exists
   , defaultEqForallPoly
   , defaultCompareForallPoly
   , parseJSONMapForeachKey
+  , toJSONMapForeachKey
     -- ** Weakening
   , weakenEquality
   , weakenOrdering
@@ -234,6 +236,9 @@ class HashableForeach f where
 
 class ToJSONKeyForall f where
   toJSONKeyForall :: ToJSONKeyFunctionForall f
+
+class ToJSONKeyForeach f where
+  toJSONKeyForeach :: ToJSONKeyFunctionForall (Product Sing f)
 
 class FromJSONKeyExists f where
   fromJSONKeyExists :: FromJSONKeyFunction (Exists f)
@@ -588,6 +593,20 @@ instance (EqForeach f, Reify a) => Eq (Apply f a) where
 
 instance (OrdForeach f, Reify a) => Ord (Apply f a) where
   compare (Apply a) (Apply b) = compareForeach reify a b
+
+-- This name is not great. I need to figure out a better naming
+-- scheme that allows this area to grow.
+toJSONMapForeachKey :: (ToJSONKeyForeach f, ToJSONForeach v)
+  => Sing a
+  -> Map (f a) (v a)
+  -> Aeson.Value
+toJSONMapForeachKey s m = case toJSONKeyForeach of
+  ToJSONKeyTextForall keyToText _ -> toJSON $ M.foldlWithKey'
+    ( \hm key val -> HM.insert (keyToText (Pair s key)) (toJSONForeach s val) hm
+    ) HM.empty m
+  ToJSONKeyValueForall keyToValue _ -> toJSON $ M.foldrWithKey' 
+    ( \key val xs -> (keyToValue (Pair s key), toJSONForeach s val) : xs
+    ) [] m
 
 -- | Parse a 'Map' whose key type is higher-kinded. This only creates a valid 'Map'
 --   if the 'OrdForeach' instance agrees with the 'Ord' instance.
