@@ -583,20 +583,20 @@ instance (FromJSONForeach f, FromJSONSing k) => FromJSON (Some (f :: k -> Type))
 -- only used internally for its instances
 newtype Apply f a = Apply { getApply :: f a }
 
-instance EqForall f => Eq (Apply f a) where
-  Apply a == Apply b = eqForall a b
+instance (EqForeach f, Reify a) => Eq (Apply f a) where
+  Apply a == Apply b = eqForeach reify a b
 
-instance OrdForall f => Ord (Apply f a) where
-  compare (Apply a) (Apply b) = compareForall a b
+instance (OrdForeach f, Reify a) => Ord (Apply f a) where
+  compare (Apply a) (Apply b) = compareForeach reify a b
 
 -- | Parse a 'Map' whose key type is higher-kinded. This only creates a valid 'Map'
---   if the 'OrdForall' instance agrees with the 'Ord' instance.
-parseJSONMapForeachKey :: forall f a v. (FromJSONKeyForeach f, OrdForall f)
+--   if the 'OrdForeach' instance agrees with the 'Ord' instance.
+parseJSONMapForeachKey :: forall k (f :: k -> Type) (a :: k) v. (FromJSONKeyForeach f, OrdForeach f, Unreify k)
   => (Aeson.Value -> Aeson.Parser v) 
   -> Sing a
   -> Aeson.Value
   -> Aeson.Parser (Map (f a) v)
-parseJSONMapForeachKey valueParser s obj = case fromJSONKeyForeach of
+parseJSONMapForeachKey valueParser s obj = unreify s $ case fromJSONKeyForeach of
   FromJSONKeyTextParserForeach f -> Aeson.withObject "Map k v"
     ( fmap (M.mapKeysMonotonic getApply) . HM.foldrWithKey
       (\k v m -> M.insert
