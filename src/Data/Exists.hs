@@ -208,6 +208,16 @@ instance (ToJSONKeyForeach f, Reify a) => ToJSONKey (ApplyForeach f a) where
 textEncodingToValueEncoding :: Aeson.Encoding' Text -> Aeson.Encoding' Aeson.Value
 textEncodingToValueEncoding = AEI.retagEncoding
 
+instance (FromJSONKeyForeach f, Reify a) => FromJSONKey (ApplyForeach f a) where
+  fromJSONKey = case fromJSONKeyForeach of
+    FromJSONKeyTextParserForeach f -> FromJSONKeyTextParser (fmap ApplyForeach . f reify)
+    FromJSONKeyValueForeach f -> FromJSONKeyValue (fmap ApplyForeach . f reify)
+  fromJSONKeyList = case fromJSONKeyForeach of
+    FromJSONKeyTextParserForeach f -> FromJSONKeyValue $ Aeson.withArray "ApplyForeach" $ \xs -> do
+      fmap V.toList (mapM (fmap ApplyForeach . Aeson.withText "ApplyForeach" (f reify)) xs)
+    FromJSONKeyValueForeach f -> FromJSONKeyValue $ Aeson.withArray "ApplyForeach" $ \xs -> do
+      fmap V.toList (mapM (fmap ApplyForeach . f reify) xs)
+
 class EqForall f where
   eqForall :: f a -> f a -> Bool
 
