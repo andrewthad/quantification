@@ -34,6 +34,7 @@ module Data.Exists
   , DependentPair(..)
   , WitnessedEquality(..)
   , WitnessedOrdering(..)
+  , ApplyForeach(..)
     -- * Type Classes
   , EqForall(..)
   , EqForallPoly(..)
@@ -170,6 +171,21 @@ data ToJSONKeyFunctionForall f
 data FromJSONKeyFunctionForeach f
   = FromJSONKeyTextParserForeach !(forall a. Sing a -> Text -> Aeson.Parser (f a))
   | FromJSONKeyValueForeach !(forall a. Sing a -> Aeson.Value -> Aeson.Parser (f a))
+
+-- | This is useful for recovering an instance of a typeclass when
+-- we have the pi-quantified variant and a singleton in scope.
+newtype ApplyForeach f a = ApplyForeach { getApplyForeach :: f a }
+
+instance (EqForeach f, Reify a) => Eq (ApplyForeach f a) where
+  ApplyForeach a == ApplyForeach b = eqForeach reify a b
+
+instance (OrdForeach f, Reify a) => Ord (ApplyForeach f a) where
+  compare (ApplyForeach a) (ApplyForeach b) = compareForeach reify a b
+
+instance (ShowForeach f, Reify a) => Show (ApplyForeach f a) where
+  showsPrec p (ApplyForeach a) = showParen (p > 10)
+    $ showString "ApplyForeach "
+    . showsPrecForeach reify 11 a
 
 class EqForall f where
   eqForall :: f a -> f a -> Bool
@@ -588,15 +604,6 @@ instance (FromJSONForeach f, FromJSONSing k) => FromJSON (Some (f :: k -> Type))
       return (Some s val)
     else fail "array of length 2 expected"
 
--- only used internally for its instances
-newtype Apply f a = Apply { getApply :: f a }
-
-instance (EqForeach f, Reify a) => Eq (Apply f a) where
-  Apply a == Apply b = eqForeach reify a b
-
-instance (OrdForeach f, Reify a) => Ord (Apply f a) where
-  compare (Apply a) (Apply b) = compareForeach reify a b
-
 -- This name is not great. I need to figure out a better naming
 -- scheme that allows this area to grow.
 toJSONMapForeachKey :: (ToJSONKeyForeach f, ToJSONForeach v)
@@ -620,16 +627,16 @@ parseJSONMapForeachKey :: forall k (f :: k -> Type) (a :: k) v. (FromJSONKeyFore
   -> Aeson.Parser (Map (f a) v)
 parseJSONMapForeachKey valueParser s obj = unreify s $ case fromJSONKeyForeach of
   FromJSONKeyTextParserForeach f -> Aeson.withObject "Map k v"
-    ( fmap (M.mapKeysMonotonic getApply) . HM.foldrWithKey
+    ( fmap (M.mapKeysMonotonic getApplyForeach) . HM.foldrWithKey
       (\k v m -> M.insert
-        <$> (coerce (f s k :: Aeson.Parser (f a)) :: Aeson.Parser (Apply f a)) <?> Key k
+        <$> (coerce (f s k :: Aeson.Parser (f a)) :: Aeson.Parser (ApplyForeach f a)) <?> Key k
         <*> valueParser v <?> Key k
         <*> m
       ) (pure M.empty)
     ) obj
   FromJSONKeyValueForeach f -> Aeson.withArray "Map k v"
-    ( fmap (M.mapKeysMonotonic getApply . M.fromList)
-    . (coerce :: Aeson.Parser [(f a, v)] -> Aeson.Parser [(Apply f a, v)])
+    ( fmap (M.mapKeysMonotonic getApplyForeach . M.fromList)
+    . (coerce :: Aeson.Parser [(f a, v)] -> Aeson.Parser [(ApplyForeach f a, v)])
     . TRV.sequence
     . zipWith (parseIndexedJSONPair (f s) valueParser) [0..]
     . V.toList
