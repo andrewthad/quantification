@@ -197,6 +197,11 @@ instance ToJSONKeyForeach f => ToJSONKeyForeach (ApplyForeach f) where
       (\(Pair s (ApplyForeach x)) -> f (Pair s x))
       (\(Pair s (ApplyForeach x)) -> g (Pair s x))
 
+instance FromJSONKeyForeach f => FromJSONKeyForeach (ApplyForeach f) where
+  fromJSONKeyForeach = case fromJSONKeyForeach of
+    FromJSONKeyTextParserForeach f -> FromJSONKeyTextParserForeach (\s t -> fmap ApplyForeach (f s t))
+    FromJSONKeyValueForeach f -> FromJSONKeyValueForeach (\s t -> fmap ApplyForeach (f s t))
+
 instance (ToJSONKeyForeach f, Reify a) => ToJSONKey (ApplyForeach f a) where
   toJSONKey = case toJSONKeyForeach of
     ToJSONKeyTextForall toText toEnc -> ToJSONKeyText
