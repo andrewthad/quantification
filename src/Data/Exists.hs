@@ -188,11 +188,23 @@ instance (ShowForeach f, Reify a) => Show (ApplyForeach f a) where
     $ showString "ApplyForeach "
     . showsPrecForeach reify 11 a
 
-instance (EqForeach f) => EqForeach (ApplyForeach f) where
+instance (ToJSONForeach f, Reify a) => ToJSON (ApplyForeach f a) where
+  toJSON = toJSONForeach reify
+
+instance (FromJSONForeach f, Reify a) => FromJSON (ApplyForeach f a) where
+  parseJSON = parseJSONForeach reify
+
+instance EqForeach f => EqForeach (ApplyForeach f) where
   eqForeach s (ApplyForeach a) (ApplyForeach b) = eqForeach s a b
 
-instance (OrdForeach f) => OrdForeach (ApplyForeach f) where
+instance OrdForeach f => OrdForeach (ApplyForeach f) where
   compareForeach s (ApplyForeach a) (ApplyForeach b) = compareForeach s a b
+
+instance ToJSONForeach f => ToJSONForeach (ApplyForeach f) where
+  toJSONForeach s (ApplyForeach x) = toJSONForeach s x
+
+instance FromJSONForeach f => FromJSONForeach (ApplyForeach f) where
+  parseJSONForeach s = fmap ApplyForeach . parseJSONForeach s
 
 instance ToJSONKeyForeach f => ToJSONKeyForeach (ApplyForeach f) where
   toJSONKeyForeach = case toJSONKeyForeach of
