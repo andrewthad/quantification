@@ -129,6 +129,7 @@ import GHC.Exts (dataToTag#,State#,Int#,Proxy#,Addr#,ByteArray#,MutableByteArray
 import GHC.Int (Int(..))
 
 import qualified Data.Aeson.Encoding as Aeson
+import qualified Data.Aeson.Encoding.Internal as AEI
 import qualified Data.Aeson.Types as Aeson
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Map.Strict as M
@@ -186,6 +187,26 @@ instance (ShowForeach f, Reify a) => Show (ApplyForeach f a) where
   showsPrec p (ApplyForeach a) = showParen (p > 10)
     $ showString "ApplyForeach "
     . showsPrecForeach reify 11 a
+
+instance (ToJSONKeyForeach f, Reify a) => ToJSONKey (ApplyForeach f a) where
+  toJSONKey = case toJSONKeyForeach of
+    ToJSONKeyTextForall toText toEnc -> ToJSONKeyText
+      (\(ApplyForeach x) -> toText (Pair reify x))
+      (\(ApplyForeach x) -> toEnc (Pair reify x))
+    ToJSONKeyValueForall toValue toEnc -> ToJSONKeyValue
+      (\(ApplyForeach x) -> toValue (Pair reify x))
+      (\(ApplyForeach x) -> toEnc (Pair reify x))
+  toJSONKeyList = case toJSONKeyForeach of
+    ToJSONKeyTextForall toText toEnc -> ToJSONKeyValue
+      (\xs -> toJSON $ map (\(ApplyForeach x) -> toText (Pair reify x)) xs)
+      (\xs -> Aeson.list (textEncodingToValueEncoding . toEnc . Pair reify) (map getApplyForeach xs))
+    ToJSONKeyValueForall toValue toEnc -> ToJSONKeyValue
+      (\xs -> toJSON $ map (\(ApplyForeach x) -> toValue (Pair reify x)) xs)
+      (\xs -> Aeson.list (toEnc . Pair reify) (map getApplyForeach xs))
+
+-- this is always safe
+textEncodingToValueEncoding :: Aeson.Encoding' Text -> Aeson.Encoding' Aeson.Value
+textEncodingToValueEncoding = AEI.retagEncoding
 
 class EqForall f where
   eqForall :: f a -> f a -> Bool
