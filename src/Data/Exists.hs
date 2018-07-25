@@ -424,6 +424,9 @@ instance (ShowForall f, ShowForall g) => ShowForall (Product f g) where
 instance (Aeson.ToJSON1 f, ToJSONForall g) => ToJSONForall (Compose f g) where
   toJSONForall (Compose x) = Aeson.liftToJSON toJSONForall (Aeson.toJSON . map toJSONForall) x
 
+instance (Aeson.ToJSON1 f, ToJSONForeach g) => ToJSONForeach (Compose f g) where
+  toJSONForeach s (Compose x) = Aeson.liftToJSON (toJSONForeach s) (Aeson.toJSON . map (toJSONForeach s)) x
+
 instance (Aeson.FromJSON1 f, FromJSONForeach g) => FromJSONForeach (Compose f g) where
   parseJSONForeach s = fmap Compose . Aeson.liftParseJSON
     (parseJSONForeach s)
