@@ -188,6 +188,15 @@ instance (ShowForeach f, Reify a) => Show (ApplyForeach f a) where
     $ showString "ApplyForeach "
     . showsPrecForeach reify 11 a
 
+instance ToJSONKeyForeach f => ToJSONKeyForeach (ApplyForeach f) where
+  toJSONKeyForeach = case toJSONKeyForeach of
+    ToJSONKeyTextForall f g -> ToJSONKeyTextForall
+      (\(Pair s (ApplyForeach x)) -> f (Pair s x))
+      (\(Pair s (ApplyForeach x)) -> g (Pair s x))
+    ToJSONKeyValueForall f g -> ToJSONKeyValueForall
+      (\(Pair s (ApplyForeach x)) -> f (Pair s x))
+      (\(Pair s (ApplyForeach x)) -> g (Pair s x))
+
 instance (ToJSONKeyForeach f, Reify a) => ToJSONKey (ApplyForeach f a) where
   toJSONKey = case toJSONKeyForeach of
     ToJSONKeyTextForall toText toEnc -> ToJSONKeyText
