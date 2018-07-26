@@ -15,6 +15,7 @@ build-type: Simple
 library
   hs-source-dirs: src
   exposed-modules:
+    Data.Binary.Lifted
     Data.Exists
     Data.Monoid.Lifted
     Topaz.Rec

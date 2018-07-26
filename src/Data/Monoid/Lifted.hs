@@ -5,19 +5,19 @@ module Data.Monoid.Lifted
   , empty1
   ) where
 
-import Data.Functor.Identity
-import Data.Functor.Compose
-import qualified Data.Functor.Product as FP
-import Data.Map.Strict (Map)
-import Data.HashMap.Strict (HashMap)
 import Control.Applicative
-import Data.Semigroup (Semigroup)
+import Data.Functor.Compose
+import Data.Functor.Identity
+import Data.HashMap.Strict (HashMap)
 import Data.Hashable (Hashable)
+import Data.Map.Strict (Map)
 import Data.Monoid
 import Data.Proxy (Proxy(..))
-import qualified Data.Semigroup as SG
-import qualified Data.Map.Strict as M
+import Data.Semigroup (Semigroup)
+import qualified Data.Functor.Product as FP
 import qualified Data.HashMap.Strict as HM
+import qualified Data.Map.Strict as M
+import qualified Data.Semigroup as SG
 
 -- | Laws for this typeclass:
 --

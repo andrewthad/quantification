@@ -120,6 +120,7 @@ import Data.Aeson (ToJSONKey(..),FromJSONKey(..))
 import Data.Aeson (ToJSONKeyFunction(..),FromJSONKeyFunction(..))
 import Data.Aeson.Internal ((<?>),JSONPathElement(Key,Index))
 import Data.Binary (Get,Put,Binary)
+import Data.Binary.Lifted (Binary1(..))
 import Data.Coerce (coerce)
 import Data.Functor.Classes (Eq1(..),Show1(..))
 import Data.Functor.Compose (Compose(..))
@@ -557,6 +558,10 @@ instance (Show1 f, ShowForeach g) => ShowForeach (Compose f g) where
 
 instance (Semigroup1 f, SemigroupForeach g) => SemigroupForeach (Compose f g) where
   appendForeach s (Compose x) (Compose y) = Compose (liftAppend (appendForeach s) x y)
+
+instance (Binary1 f, BinaryForeach g) => BinaryForeach (Compose f g) where
+  putForeach s (Compose x) = liftPut (putForeach s) x
+  getForeach s = fmap Compose (liftGet (getForeach s))
 
 showListForall :: ShowForall f => [f a] -> ShowS
 showListForall = showList__ showsForall
