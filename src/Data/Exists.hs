@@ -93,6 +93,7 @@ module Data.Exists
     -- * Functions
     -- ** Show
   , showsForall
+  , showsForeach
   , showForall
   , showsForall2
   , showForall2
@@ -294,6 +295,9 @@ class ShowForeach2 f where
 
 showsForall :: ShowForall f => f a -> ShowS
 showsForall = showsPrecForall 0
+
+showsForeach :: ShowForeach f => Sing a -> f a -> ShowS
+showsForeach s = showsPrecForeach s 0
 
 showForall :: ShowForall f => f a -> String
 showForall x = showsForall x ""
@@ -540,14 +544,23 @@ instance (Aeson.FromJSON1 f, FromJSONForeach g) => FromJSONForeach (Compose f g)
 instance (Eq1 f, EqForall g) => EqForall (Compose f g) where
   eqForall (Compose x) (Compose y) = liftEq eqForall x y
 
+instance (Eq1 f, EqForeach g) => EqForeach (Compose f g) where
+  eqForeach s (Compose x) (Compose y) = liftEq (eqForeach s) x y
+
 instance (Show1 f, ShowForall g) => ShowForall (Compose f g) where
-  showsPrecForall _ (Compose x) = showString "Compose " . liftShowsPrec showsPrecForall showListForall 11 x
+  showsPrecForall p (Compose x) = showParen (p > 10) $ showString "Compose " . liftShowsPrec showsPrecForall showListForall 11 x
+
+instance (Show1 f, ShowForeach g) => ShowForeach (Compose f g) where
+  showsPrecForeach s p (Compose x) = showParen (p > 10) $ showString "Compose " . liftShowsPrec (showsPrecForeach s) (showListForeach s) 11 x
 
 instance (Semigroup1 f, SemigroupForeach g) => SemigroupForeach (Compose f g) where
   appendForeach s (Compose x) (Compose y) = Compose (liftAppend (appendForeach s) x y)
 
 showListForall :: ShowForall f => [f a] -> ShowS
 showListForall = showList__ showsForall
+
+showListForeach :: ShowForeach f => Sing a -> [f a] -> ShowS
+showListForeach s = showList__ (showsForeach s)
 
 -- Copied from GHC.Show. I do not like to import internal modules
 -- if I can instead copy a small amount of code.
