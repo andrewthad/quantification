@@ -148,10 +148,23 @@ instance ShowForall f => ShowForall (Rec f) where
 instance ShowForall f => Show (Rec f as) where
   showsPrec = showsPrecForall
 
+instance ShowForeach f => ShowForeach (Rec f) where
+  showsPrecForeach SingListNil _ RecNil = showString "RecNil"
+  showsPrecForeach (SingListCons s ss) p (RecCons v vs) = showParen (p > 10)
+    $ showString "RecCons "
+    . showsPrecForeach s 11 v
+    . showString " "
+    . showsPrecForeach ss 11 vs
+
 instance EqForall f => EqForall (Rec f) where
   eqForall RecNil RecNil = True
   eqForall (RecCons a as) (RecCons b bs) =
     eqForall a b && eqForall as bs
+
+instance EqForeach f => EqForeach (Rec f) where
+  eqForeach SingListNil RecNil RecNil = True
+  eqForeach (SingListCons s ss) (RecCons a as) (RecCons b bs) =
+    eqForeach s a b && eqForeach ss as bs
 
 instance OrdForall f => Ord (Rec f as) where
   compare = compareForall
@@ -160,6 +173,12 @@ instance OrdForall f => OrdForall (Rec f) where
   compareForall RecNil RecNil = EQ
   compareForall (RecCons a as) (RecCons b bs) =
     mappend (compareForall a b) (compareForall as bs)
+
+instance OrdForeach f => OrdForeach (Rec f) where
+  compareForeach SingListNil RecNil RecNil = EQ
+  compareForeach (SingListCons s ss) (RecCons a as) (RecCons b bs) =
+    mappend (compareForeach s a b) (compareForeach ss as bs)
+
 
 instance SemigroupForall f => Semigroup (Rec f as) where
   (<>) = recZipWith appendForall
