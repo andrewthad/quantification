@@ -672,6 +672,17 @@ instance (SingKind k, Binary k) => BinaryExists (SingList :: [k] -> Type) where
   putExists (Exists xs) = BN.put (demoteSing xs)
   getExists = fmap promoteSing BN.get
 
+instance (ShowSing k) => Show (SingList (xs :: [k])) where
+  showsPrec _ SingListNil = showString "SingListNil"
+  showsPrec p (SingListCons s ss) = showParen (p > 10)
+    $ showString "SingListCons "
+    . showsPrecSing 11 s
+    . showChar ' '
+    . showsPrec 11 ss
+
+instance ShowSing k => ShowSing [k] where
+  showsPrecSing = showsPrec
+
 data SingMaybe :: Maybe k -> Type where
   SingMaybeJust :: Sing a -> SingMaybe ('Just a)
   SingMaybeNothing :: SingMaybe 'Nothing
