@@ -311,7 +311,7 @@ class EqForall2 f where
   eqForall2 :: f a b -> f a b -> Bool
 
 class EqForallPoly2 f where
-  eqForallPoly2 :: f a b -> f c d -> Bool
+  eqForallPoly2 :: f a b -> f c d -> WitnessedEquality '(a,c) '(b,d)
 
 class HashableForall f where
   hashWithSaltForall :: Int -> f a -> Int
@@ -455,7 +455,7 @@ instance EqForallPoly f => Eq (Exists f) where
   Exists a == Exists b = weakenEquality (eqForallPoly a b)
 
 instance EqForallPoly2 f => Eq (Exists2 f) where
-  Exists2 a == Exists2 b = eqForallPoly2 a b
+  Exists2 a == Exists2 b = weakenEquality (eqForallPoly2 a b)
 
 instance OrdForallPoly f => Ord (Exists f) where
   compare (Exists a) (Exists b) = weakenOrdering (compareForallPoly a b)
