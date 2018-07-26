@@ -310,8 +310,8 @@ class ReadExists f where
 class EqForall2 f where
   eqForall2 :: f a b -> f a b -> Bool
 
-class EqForallPoly2 f where
-  eqForallPoly2 :: f a b -> f c d -> WitnessedEquality '(a,c) '(b,d)
+class EqForallPoly2 (f :: k -> j -> Type) where 
+  eqForallPoly2 :: forall (a :: k) (b :: j) (c :: k) (d :: j). f a b -> f c d -> WitnessedEquality '(a,b) '(c,d)
 
 class HashableForall f where
   hashWithSaltForall :: Int -> f a -> Int
