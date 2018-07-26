@@ -95,6 +95,8 @@ module Data.Exists
   , showsForall
   , showsForeach
   , showForall
+  , showsListForall
+  , showsListForeach
   , showsForall2
   , showForall2
     -- ** Defaulting
