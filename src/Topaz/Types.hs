@@ -27,20 +27,22 @@ module Topaz.Types
   , type (++)
   ) where
 
+import Control.Applicative (liftA2)
 import Data.Exists
-import Data.Hashable (Hashable(..))
-import Foreign.Storable (Storable(..))
-import Data.Type.Equality
-import Data.Type.Coercion
-import Data.Semigroup (Semigroup)
-import Data.Proxy (Proxy(..))
-import Foreign.Ptr (castPtr,plusPtr)
 import Data.Foldable (foldrM)
+import Data.Hashable (Hashable(..))
 import Data.Kind (Type)
 import Data.Monoid.Lifted (Semigroup1(..), Monoid1(..), append1)
-import qualified Data.Semigroup as SG
+import Data.Proxy (Proxy(..))
+import Data.Semigroup (Semigroup)
+import Data.Type.Coercion
+import Data.Type.Equality
+import Foreign.Ptr (castPtr,plusPtr)
+import Foreign.Storable (Storable(..))
+
 import qualified Data.Aeson as AE
 import qualified Data.Aeson.Types as AET
+import qualified Data.Semigroup as SG
 import qualified Data.Vector as V
 
 data Nat = Succ Nat | Zero
@@ -201,10 +203,7 @@ instance FromJSONForeach f => FromJSONForeach (Rec f) where
           else fail "not enough elements in array"
     go s0 0
 
-instance (StorableForeach f, ToSing f) => StorableForeach (Rec f) where
-  -- sizeOfFunctorForall RecNil = 0
-  -- sizeOfFunctorForall (RecCons r rs) =
-  --   sizeOfFunctorForall r + sizeOfFunctorForall rs
+instance StorableForeach f => StorableForeach (Rec f) where
   sizeOfForeach _ SingListNil = 0
   sizeOfForeach _ (SingListCons s ss) =
     sizeOfForeach (Proxy :: Proxy f) s + sizeOfForeach (Proxy :: Proxy (Rec f)) ss
@@ -216,13 +215,22 @@ instance (StorableForeach f, ToSing f) => StorableForeach (Rec f) where
   pokeForeach _ _ RecNil = return ()
   pokeForeach (SingListCons s ss) ptr (RecCons r rs) = do
     pokeForeach s (castPtr ptr) r
-    pokeForeach ss (plusPtr ptr (sizeOfForeach (Proxy :: Proxy f) (toSing r))) rs
+    pokeForeach ss (plusPtr ptr (sizeOfForeach (Proxy :: Proxy f) s)) rs
 
-instance (StorableForeach f, ToSing f, Reify as) => Storable (Rec f as) where
+instance (StorableForeach f, Reify as) => Storable (Rec f as) where
   sizeOf _ = sizeOfForeach (Proxy :: Proxy (Rec f)) (reify :: SingList as)
   alignment _ = sizeOf (undefined :: Rec f as)
   poke = pokeForeach (reify :: SingList as)
   peek = peekForeach (reify :: SingList as)
+
+instance BinaryForeach f => BinaryForeach (Rec f) where
+  putForeach SingListNil RecNil = return ()
+  putForeach (SingListCons s ss) (RecCons r rs) = do
+    putForeach s r
+    putForeach ss rs
+  getForeach SingListNil = return RecNil
+  getForeach (SingListCons s ss) =
+    liftA2 RecCons (getForeach s) (getForeach ss)
 
 instance FromJSONExists f => FromJSONExists (Rec f) where
   parseJSONExists = AE.withArray "Rec" $ \vs -> 

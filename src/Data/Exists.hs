@@ -44,7 +44,7 @@ module Data.Exists
   , OrdForeach(..)
   , ShowForall(..)
   , ShowForeach(..)
-  , ReadForall(..)
+  , ReadExists(..)
   , EnumForall(..)
   , EnumExists(..)
   , BoundedExists(..)
@@ -68,11 +68,14 @@ module Data.Exists
   , StorableForeach(..)
   , StorableForall(..)
   , PrimForall(..)
+  , BinaryExists(..)
+  , BinaryForeach(..)
     -- * Higher Rank Classes
   , EqForall2(..)
   , EqForallPoly2(..)
   , ShowForall2(..)
   , ShowForeach2(..)
+  , BinaryExists2(..)
     -- * More Type Classes
   , Sing
   , SingList(..)
@@ -112,6 +115,7 @@ import Data.Aeson (ToJSON(..),FromJSON(..))
 import Data.Aeson (ToJSONKey(..),FromJSONKey(..))
 import Data.Aeson (ToJSONKeyFunction(..),FromJSONKeyFunction(..))
 import Data.Aeson.Internal ((<?>),JSONPathElement(Key,Index))
+import Data.Binary (Get,Put,Binary)
 import Data.Coerce (coerce)
 import Data.Functor.Classes (Eq1(..),Show1(..))
 import Data.Functor.Compose (Compose(..))
@@ -131,6 +135,7 @@ import GHC.Int (Int(..))
 import qualified Data.Aeson.Encoding as Aeson
 import qualified Data.Aeson.Encoding.Internal as AEI
 import qualified Data.Aeson.Types as Aeson
+import qualified Data.Binary as BIN
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Map.Strict as M
 import qualified Data.Traversable as TRV
@@ -298,8 +303,8 @@ showsForall2 = showsPrecForall2 0
 showForall2 :: ShowForall2 f => f a b -> String
 showForall2 x = showsForall2 x ""
 
-class ReadForall f where
-  readPrecForall :: R.ReadPrec (Exists f)
+class ReadExists f where
+  readPrecExists :: R.ReadPrec (Exists f)
 
 class EqForall2 f where
   eqForall2 :: f a b -> f a b -> Bool
@@ -386,6 +391,18 @@ class PrimForall (f :: k -> Type) where
   writeOffAddrForall# :: Addr# -> Int# -> f a -> State# s -> State# s
   setOffAddrForall# :: Addr# -> Int# -> Int# -> f a -> State# s -> State# s
 
+class BinaryForeach (f :: k -> Type) where
+  putForeach :: Sing a -> f a -> Put
+  getForeach :: Sing a -> Get (f a)
+
+class BinaryExists (f :: k -> Type) where
+  putExists :: Exists f -> Put
+  getExists :: Get (Exists f)
+
+class BinaryExists2 (f :: k -> j -> Type) where
+  putExists2 :: Exists2 f -> Put
+  getExists2 :: Get (Exists2 f)
+
 --------------------
 -- Instances Below
 --------------------
@@ -399,8 +416,8 @@ instance OrdForall Proxy where
 instance ShowForall Proxy where
   showsPrecForall = showsPrec
 
-instance ReadForall Proxy where
-  readPrecForall = fmap Exists R.readPrec 
+instance ReadExists Proxy where
+  readPrecExists = fmap Exists R.readPrec 
 
 instance SemigroupForall Proxy where
   appendForall _ _ = Proxy 
@@ -461,10 +478,10 @@ instance ShowForall2 f => Show (Exists2 f) where
     (p >= 11) 
     (showString "Exists " . showsPrecForall2 11 a)
 
-instance ReadForall f => Read (Exists f) where
+instance ReadExists f => Read (Exists f) where
   readPrec = R.parens $ R.prec 10 $ do
     R.Ident "Exists" <- R.lexP
-    R.step readPrecForall
+    R.step readPrecExists
     
 instance EnumExists f => Enum (Exists f) where
   fromEnum = fromEnumExists
@@ -473,6 +490,14 @@ instance EnumExists f => Enum (Exists f) where
 instance BoundedExists f => Bounded (Exists f) where
   minBound = minBoundExists
   maxBound = maxBoundExists
+
+instance BinaryExists f => Binary (Exists f) where
+  get = getExists
+  put = putExists
+
+instance BinaryExists2 f => Binary (Exists2 f) where
+  get = getExists2
+  put = putExists2
 
 instance PathPieceExists f => PP.PathPiece (Exists f) where
   toPathPiece = toPathPieceForall
