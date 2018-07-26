@@ -89,6 +89,7 @@ module Data.Exists
   , ToJSONSing(..)
   , FromJSONSing(..)
   , ToSing(..)
+  , SingKind(..)
     -- * Functions
     -- ** Show
   , showsForall
@@ -135,7 +136,7 @@ import GHC.Int (Int(..))
 import qualified Data.Aeson.Encoding as Aeson
 import qualified Data.Aeson.Encoding.Internal as AEI
 import qualified Data.Aeson.Types as Aeson
-import qualified Data.Binary as BIN
+import qualified Data.Binary as BN
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Map.Strict as M
 import qualified Data.Traversable as TRV
@@ -585,6 +586,19 @@ getTagBox !x = I# (dataToTag# x)
 
 type family Sing = (r :: k -> Type) | r -> k
 
+-- | The two functions must form an isomorphism.
+class SingKind k where
+  demoteSing :: Sing (a :: k) -> k
+  promoteSing :: k -> Exists (Sing :: k -> Type)
+
+instance SingKind k => SingKind [k] where
+  demoteSing SingListNil = []
+  demoteSing (SingListCons s ss) = demoteSing s : demoteSing ss
+  promoteSing [] = Exists SingListNil
+  promoteSing (x : xs) = case promoteSing x of
+    Exists s -> case promoteSing xs of
+      Exists ss -> Exists (SingListCons s ss)
+
 type instance Sing = SingList
 type instance Sing = SingMaybe
 
@@ -637,9 +651,13 @@ class SemigroupForeach f => MonoidForeach f where
 class SemigroupForall f => MonoidForall f where
   memptyForall :: f a
 
-data SingList :: [k] -> Type where
+data SingList :: forall (k :: Type). [k] -> Type where
   SingListNil :: SingList '[]
   SingListCons :: Sing r -> SingList rs -> SingList (r ': rs)
+
+instance (SingKind k, Binary k) => BinaryExists (SingList :: [k] -> Type) where
+  putExists (Exists xs) = BN.put (demoteSing xs)
+  getExists = fmap promoteSing BN.get
 
 data SingMaybe :: Maybe k -> Type where
   SingMaybeJust :: Sing a -> SingMaybe ('Just a)
