@@ -30,6 +30,7 @@ module Topaz.Rec
   , puts
     -- * Conversion
   , fromSingList
+  , toSingList
   ) where
 
 import Prelude hiding (map,zipWith,foldMap,traverse)
@@ -114,4 +115,8 @@ append (RecCons x xs) ys = RecCons x (append xs ys)
 fromSingList :: SingList as -> Rec Sing as
 fromSingList SingListNil = RecNil
 fromSingList (SingListCons r rs) = RecCons r (fromSingList rs)
+
+toSingList :: Rec Sing as -> SingList as
+toSingList RecNil = SingListNil
+toSingList (RecCons r rs) = SingListCons r (toSingList rs)
 

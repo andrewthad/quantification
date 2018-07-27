@@ -675,6 +675,21 @@ data SingList :: forall (k :: Type). [k] -> Type where
   SingListNil :: SingList '[]
   SingListCons :: Sing r -> SingList rs -> SingList (r ': rs)
 
+-- singletons can only have one inhabitant per type, so if the
+-- types are equal, the values must be equal
+instance EqForall SingList where
+  eqForall _ _ = True
+
+instance EqSing k => EqForallPoly (SingList :: [k] -> Type) where
+  eqForallPoly SingListNil SingListNil = WitnessedEqualityEqual
+  eqForallPoly SingListNil (SingListCons _ _) = WitnessedEqualityUnequal
+  eqForallPoly (SingListCons _ _) SingListNil = WitnessedEqualityUnequal
+  eqForallPoly (SingListCons r rs) (SingListCons s ss) = case eqSing r s of
+    Nothing -> WitnessedEqualityUnequal
+    Just Refl -> case eqForallPoly rs ss of
+      WitnessedEqualityUnequal -> WitnessedEqualityUnequal
+      WitnessedEqualityEqual -> WitnessedEqualityEqual
+
 instance (SingKind k, Binary k) => BinaryExists (SingList :: [k] -> Type) where
   putExists (Exists xs) = BN.put (demoteSing xs)
   getExists = fmap promoteSing BN.get
