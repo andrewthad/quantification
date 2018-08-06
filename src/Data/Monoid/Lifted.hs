@@ -59,6 +59,9 @@ instance Monoid1 IO where
 instance Ord k => Semigroup1 (Map k) where
   liftAppend = M.unionWith
 
+instance Ord k => Monoid1 (Map k) where
+  liftEmpty _ = M.empty
+
 -- | Disagrees with 'Semigroup' instance for 'HashMap'
 instance (Hashable k, Eq k) => Semigroup1 (HashMap k) where
   liftAppend = HM.unionWith
