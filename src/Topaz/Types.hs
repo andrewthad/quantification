@@ -189,8 +189,8 @@ instance SemigroupForeach f => SemigroupForeach (Rec f) where
     RecCons (appendForeach s x y) (appendForeach ss xs ys)
 
 instance MonoidForeach f => MonoidForeach (Rec f) where
-  memptyForeach SingListNil = RecNil
-  memptyForeach (SingListCons s ss) = RecCons (memptyForeach s) (memptyForeach ss)
+  emptyForeach SingListNil = RecNil
+  emptyForeach (SingListCons s ss) = RecCons (emptyForeach s) (emptyForeach ss)
 
 instance SemigroupForall f => SemigroupForall (Rec f) where
   appendForall = recZipWith appendForall

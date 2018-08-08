@@ -228,6 +228,13 @@ instance (ShowForeach f, Reify a) => Show (ApplyForeach f a) where
     $ showString "ApplyForeach "
     . showsPrecForeach reify 11 a
 
+instance (SemigroupForeach f, Reify a) => Semigroup (ApplyForeach f a) where
+  (<>) = appendForeach reify
+
+instance (MonoidForeach f, Reify a) => Monoid (ApplyForeach f a) where
+  mempty = emptyForeach reify
+  mappend = (SG.<>)
+
 instance (ToJSONForeach f, Reify a) => ToJSON (ApplyForeach f a) where
   toJSON = toJSONForeach reify
 
@@ -239,6 +246,12 @@ instance EqForeach f => EqForeach (ApplyForeach f) where
 
 instance OrdForeach f => OrdForeach (ApplyForeach f) where
   compareForeach s (ApplyForeach a) (ApplyForeach b) = compareForeach s a b
+
+instance SemigroupForeach f => SemigroupForeach (ApplyForeach f) where
+  appendForeach s (ApplyForeach a) (ApplyForeach b) = ApplyForeach (appendForeach s a b)
+
+instance MonoidForeach f => MonoidForeach (ApplyForeach f) where
+  emptyForeach s = ApplyForeach (emptyForeach s)
 
 instance ToJSONForeach f => ToJSONForeach (ApplyForeach f) where
   toJSONForeach s (ApplyForeach x) = toJSONForeach s x
@@ -696,10 +709,10 @@ eqSingList (SingListCons a as) (SingListCons b bs) = case eqSing a b of
   Nothing -> Nothing
 
 class SemigroupForeach f => MonoidForeach f where
-  memptyForeach :: Sing a -> f a
+  emptyForeach :: Sing a -> f a
 
 class SemigroupForall f => MonoidForall f where
-  memptyForall :: f a
+  emptyForall :: f a
 
 data SingList :: forall (k :: Type). [k] -> Type where
   SingListNil :: SingList '[]
