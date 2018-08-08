@@ -34,6 +34,7 @@ module Data.Exists
   , DependentPair(..)
   , WitnessedEquality(..)
   , WitnessedOrdering(..)
+  , ApplyForall(..)
   , ApplyForeach(..)
   , ApplyLifted(..)
     -- * Type Classes
@@ -185,6 +186,21 @@ data ToJSONKeyFunctionForall f
 data FromJSONKeyFunctionForeach f
   = FromJSONKeyTextParserForeach !(forall a. Sing a -> Text -> Aeson.Parser (f a))
   | FromJSONKeyValueForeach !(forall a. Sing a -> Aeson.Value -> Aeson.Parser (f a))
+
+newtype ApplyForall f a = ApplyForall { getApplyForall :: f a }
+
+instance SemigroupForall f => Semigroup (ApplyForall f a) where
+  (<>) = appendForall
+
+instance MonoidForall f => Monoid (ApplyForall f a) where
+  mempty = emptyForall
+  mappend = (SG.<>)
+
+instance SemigroupForall f => SemigroupForall (ApplyForall f) where
+  appendForall (ApplyForall a) (ApplyForall b) = ApplyForall (appendForall a b)
+
+instance MonoidForall f => MonoidForall (ApplyForall f) where
+  emptyForall = ApplyForall emptyForall
 
 newtype ApplyLifted f a = ApplyLifted { getApplyLifted :: f a }                         
 
