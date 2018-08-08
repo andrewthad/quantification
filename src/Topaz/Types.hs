@@ -123,9 +123,6 @@ instance TestCoercion f => TestCoercion (Rec f) where
     Just Coercion
   testCoercion _ _ = Nothing
 
-instance EqForall f => Eq (Rec f as) where
-  (==) = eqForall
-
 instance HashableForall f => HashableForall (Rec f) where
   hashWithSaltForall s0 = go s0 where
     go :: Int -> Rec f rs -> Int
@@ -156,6 +153,9 @@ instance ShowForeach f => ShowForeach (Rec f) where
     . showString " "
     . showsPrecForeach ss 11 vs
 
+instance EqForall f => Eq (Rec f as) where
+  (==) = eqForall
+
 instance EqForall f => EqForall (Rec f) where
   eqForall RecNil RecNil = True
   eqForall (RecCons a as) (RecCons b bs) =
@@ -165,6 +165,16 @@ instance EqForeach f => EqForeach (Rec f) where
   eqForeach SingListNil RecNil RecNil = True
   eqForeach (SingListCons s ss) (RecCons a as) (RecCons b bs) =
     eqForeach s a b && eqForeach ss as bs
+
+instance EqForallPoly f => EqForallPoly (Rec f) where
+  eqForallPoly RecNil RecNil = WitnessedEqualityEqual
+  eqForallPoly RecNil (RecCons _ _) = WitnessedEqualityUnequal
+  eqForallPoly (RecCons _ _) RecNil = WitnessedEqualityUnequal
+  eqForallPoly (RecCons x xs) (RecCons y ys) = case eqForallPoly x y of
+    WitnessedEqualityUnequal -> WitnessedEqualityUnequal
+    WitnessedEqualityEqual -> case eqForallPoly xs ys of
+      WitnessedEqualityUnequal -> WitnessedEqualityUnequal
+      WitnessedEqualityEqual -> WitnessedEqualityEqual
 
 instance OrdForall f => Ord (Rec f as) where
   compare = compareForall
