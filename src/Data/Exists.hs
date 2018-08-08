@@ -35,6 +35,7 @@ module Data.Exists
   , WitnessedEquality(..)
   , WitnessedOrdering(..)
   , ApplyForeach(..)
+  , ApplyLifted(..)
     -- * Type Classes
   , EqForall(..)
   , EqForallPoly(..)
@@ -122,15 +123,16 @@ import Data.Aeson.Internal ((<?>),JSONPathElement(Key,Index))
 import Data.Binary (Get,Put,Binary)
 import Data.Binary.Lifted (Binary1(..))
 import Data.Coerce (coerce)
-import Data.Functor.Classes (Eq1(..),Show1(..))
+import Data.Functor.Classes (Eq1(..),Show1(..),Ord1(..),eq1,compare1)
 import Data.Functor.Compose (Compose(..))
 import Data.Functor.Product (Product(..))
 import Data.Functor.Sum (Sum(..))
 import Data.Hashable (Hashable(..))
 import Data.Kind (Type)
 import Data.Map.Strict (Map)
-import Data.Monoid.Lifted (Semigroup1(..))
+import Data.Monoid.Lifted (Semigroup1(..),Monoid1(..),append1,empty1)
 import Data.Proxy (Proxy(..))
+import Data.Semigroup (Semigroup)
 import Data.Text (Text)
 import Data.Type.Equality ((:~:)(Refl),TestEquality(..))
 import Foreign.Ptr (Ptr)
@@ -143,6 +145,7 @@ import qualified Data.Aeson.Types as Aeson
 import qualified Data.Binary as BN
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Map.Strict as M
+import qualified Data.Semigroup as SG
 import qualified Data.Traversable as TRV
 import qualified Data.Vector as V
 import qualified Text.Read as R
@@ -182,6 +185,33 @@ data ToJSONKeyFunctionForall f
 data FromJSONKeyFunctionForeach f
   = FromJSONKeyTextParserForeach !(forall a. Sing a -> Text -> Aeson.Parser (f a))
   | FromJSONKeyValueForeach !(forall a. Sing a -> Aeson.Value -> Aeson.Parser (f a))
+
+newtype ApplyLifted f a = ApplyLifted { getApplyLifted :: f a }                         
+
+instance (Semigroup1 f, Semigroup a) => Semigroup (ApplyLifted f a) where  
+  (<>) = append1
+
+instance (Monoid1 f, Monoid a) => Monoid (ApplyLifted f a) where
+  mempty = empty1 
+  mappend = liftAppend mappend
+
+instance (Eq1 f, Eq a) => Eq (ApplyLifted f a) where
+  (==) = eq1 
+
+instance (Ord1 f, Ord a) => Ord (ApplyLifted f a) where
+  compare = compare1 
+
+instance Semigroup1 f => Semigroup1 (ApplyLifted f) where  
+  liftAppend g (ApplyLifted a) (ApplyLifted b) = ApplyLifted (liftAppend g a b)                        
+
+instance Monoid1 f => Monoid1 (ApplyLifted f) where        
+  liftEmpty f = ApplyLifted (liftEmpty f)                                        
+
+instance Eq1 f => Eq1 (ApplyLifted f) where
+  liftEq f (ApplyLifted a) (ApplyLifted b) = liftEq f a b
+
+instance Ord1 f => Ord1 (ApplyLifted f) where
+  liftCompare f (ApplyLifted a) (ApplyLifted b) = liftCompare f a b
 
 -- | This is useful for recovering an instance of a typeclass when
 -- we have the pi-quantified variant and a singleton in scope.
