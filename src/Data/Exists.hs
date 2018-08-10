@@ -1,4 +1,5 @@
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE ExistentialQuantification #-}
@@ -918,4 +919,13 @@ instance (ShowForall f, ToSing f, ShowForeach g) => Show (DependentPair f g) whe
     (showString "DependentPair " . showsPrecForall 11 a . showChar ' ' . showsPrecForeach (toSing a) 11 b)
     s
 
+instance Semigroup a => SemigroupForall (Const a) where
+  appendForall (Const x) (Const y) = Const (x SG.<> y)
+
+#if MIN_VERSION_base(4,11,0)
+instance Monoid a => MonoidForall (Const a) where
+#else
+instance (Semigroup a, Monoid a) => MonoidForall (Const a) where
+#endif
+  emptyForall = Const mempty
 

@@ -14,6 +14,7 @@ import Data.Map.Strict (Map)
 import Data.Monoid
 import Data.Proxy (Proxy(..))
 import Data.Semigroup (Semigroup)
+import Data.Functor.Const (Const(..))
 import qualified Data.Functor.Product as FP
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Map.Strict as M
@@ -110,4 +111,7 @@ instance Semigroup1 ((->) a) where
 
 instance Monoid1 ((->) a) where
   liftEmpty b _ = b
+
+instance Semigroup a => Semigroup1 (Const a) where
+  liftAppend _ (Const x) (Const y) = Const (x SG.<> y)
 
