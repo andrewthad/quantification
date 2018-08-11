@@ -190,6 +190,11 @@ data FromJSONKeyFunctionForeach f
 
 newtype ApplyForall f a = ApplyForall { getApplyForall :: f a }
 
+instance ShowForall f => Show (ApplyForall f a) where
+  showsPrec p (ApplyForall x) = showParen (p > 10)
+    $ showString "ApplyForall "
+    . showsPrecForall 11 x
+
 instance SemigroupForall f => Semigroup (ApplyForall f a) where
   (<>) = appendForall
 
