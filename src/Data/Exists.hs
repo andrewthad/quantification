@@ -501,7 +501,10 @@ instance EqForall ((:~:) a) where
 instance EqForall2 (:~:) where
   eqForall2 Refl Refl = True
 
-
+instance Show a => ShowForall (Const a) where
+  showsPrecForall p (Const a) = showParen (p > 10)
+    $ showString "Const "
+    . showsPrec p a
 
 instance Eq a => EqForall (Const a) where
   eqForall (Const x) (Const y) = x == y
