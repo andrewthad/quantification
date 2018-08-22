@@ -515,6 +515,9 @@ instance Ord a => OrdForall (Const a) where
 instance Hashable a => HashableForall (Const a) where
   hashWithSaltForall s (Const a) = hashWithSalt s a
 
+instance FromJSON a => FromJSONForeach (Const a) where
+  parseJSONForeach _ = fmap Const . parseJSON
+
 
 -- I need to get rid of the ToJSONForall and FromJSONForeach constraints
 -- on these two instances.
@@ -600,6 +603,9 @@ instance (ShowForall f, ShowForall g) => ShowForall (Product f g) where
   showsPrecForall p (Pair f g) = showParen 
     (p >= 11) 
     (showString "Pair " . showsPrecForall 11 f . showChar ' ' . showsPrecForall 11 g)
+
+instance (Semigroup1 f, SemigroupForall g) => SemigroupForall (Compose f g) where
+  appendForall (Compose x) (Compose y) = Compose (liftAppend appendForall x y)
 
 instance (Aeson.ToJSON1 f, ToJSONForall g) => ToJSONForall (Compose f g) where
   toJSONForall (Compose x) = Aeson.liftToJSON toJSONForall (Aeson.toJSON . map toJSONForall) x
