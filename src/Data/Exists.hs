@@ -604,6 +604,9 @@ instance (ShowForall f, ShowForall g) => ShowForall (Product f g) where
     (p >= 11) 
     (showString "Pair " . showsPrecForall 11 f . showChar ' ' . showsPrecForall 11 g)
 
+instance (Ord1 f, OrdForeach g) => OrdForeach (Compose f g) where
+  compareForeach s (Compose x) (Compose y) = liftCompare (compareForeach s) x y
+
 instance (Semigroup1 f, SemigroupForall g) => SemigroupForall (Compose f g) where
   appendForall (Compose x) (Compose y) = Compose (liftAppend appendForall x y)
 
