@@ -58,6 +58,7 @@ module Data.Exists
   , HashableForall(..)
   , HashableForeach(..)
   , PathPieceExists(..)
+  , FromJSONForall(..) 
   , FromJSONForeach(..)
   , FromJSONExists(..)
   , ToJSONForall(..)
@@ -409,6 +410,9 @@ class ToJSONForall f where
 class ToJSONForeach f where
   toJSONForeach :: Sing a -> f a -> Aeson.Value
 
+class FromJSONForall f where
+  parseJSONForall :: Sing a -> Aeson.Value -> Aeson.Parser (f a)
+
 class FromJSONForeach f where
   parseJSONForeach :: Sing a -> Aeson.Value -> Aeson.Parser (f a)
 
@@ -517,7 +521,6 @@ instance Hashable a => HashableForall (Const a) where
 
 instance FromJSON a => FromJSONForeach (Const a) where
   parseJSONForeach _ = fmap Const . parseJSON
-
 
 -- I need to get rid of the ToJSONForall and FromJSONForeach constraints
 -- on these two instances.
@@ -822,6 +825,11 @@ instance (ToJSONForeach f, ToJSONSing k) => ToJSON (Some (f :: k -> Type)) where
 
 class FromJSONSing k where
   parseJSONSing :: Aeson.Value -> Aeson.Parser (Exists (Sing :: k -> Type))
+
+instance (Aeson.FromJSON1 f, FromJSONForall g) => FromJSONForall (Compose f g) where
+  parseJSONForall s = fmap Compose . Aeson.liftParseJSON
+      (parseJSONForall s)
+          (Aeson.withArray "Compose" (fmap V.toList . V.mapM (parseJSONForall s)))
 
 instance (FromJSONForeach f, FromJSONSing k) => FromJSON (Some (f :: k -> Type)) where
   parseJSON = Aeson.withArray "Some" $ \v -> if V.length v == 2
