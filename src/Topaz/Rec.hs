@@ -16,6 +16,7 @@
 
 module Topaz.Rec
   ( Rec(..)
+  , (<:)
   , map
   , append
   , traverse
@@ -38,6 +39,11 @@ import Topaz.Types (Elem(..),type (++),Rec(..))
 import Data.Exists
 import Data.Semigroup (Semigroup)
 import qualified Data.Semigroup as SG
+
+-- | infix RecCons with proper fixity
+infixr 7 <:
+(<:) :: forall a (f :: a -> *) (r :: a) (rs :: [a]).  f r -> Rec f rs -> Rec f (r : rs)
+(<:) = RecCons
 
 map :: (forall x. f x -> g x) -> Rec f as -> Rec g as
 map _ RecNil = RecNil
