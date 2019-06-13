@@ -13,6 +13,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeFamilyDependencies #-}
 {-# LANGUAGE TypeInType #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UnboxedTuples #-}
 
@@ -518,6 +519,8 @@ instance Hashable a => HashableForall (Const a) where
 instance FromJSON a => FromJSONForeach (Const a) where
   parseJSONForeach _ = fmap Const . parseJSON
 
+instance ToJSON a => ToJSONForeach (Const a) where
+  toJSONForeach _ = coerce (toJSON @a)
 
 -- I need to get rid of the ToJSONForall and FromJSONForeach constraints
 -- on these two instances.
