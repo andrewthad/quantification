@@ -7,17 +7,17 @@
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MagicHash #-}
+{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeFamilyDependencies #-}
 {-# LANGUAGE TypeInType #-}
-{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UnboxedTuples #-}
-
-{-# OPTIONS_GHC -Wall #-}
+{-# LANGUAGE ViewPatterns #-}
 
 {-| Data types and type classes for working with existentially quantified
     values. When Quantified Class Constraints land in GHC 8.6,
@@ -29,9 +29,9 @@
 
 module Data.Exists
   ( -- * Data Types
-    Exists(..)
-  , Exists2(..)
-  , Exists3(..)
+    Exists(Exists)
+  , Exists2(Exists2)
+  , Exists3(Exists3)
   , Some(..)
   , DependentPair(..)
   , WitnessedEquality(..)
@@ -59,7 +59,7 @@ module Data.Exists
   , HashableForall(..)
   , HashableForeach(..)
   , PathPieceExists(..)
-  , FromJSONForall(..) 
+  , FromJSONForall(..)
   , FromJSONForeach(..)
   , FromJSONExists(..)
   , ToJSONForall(..)
@@ -142,6 +142,7 @@ import Data.Type.Equality ((:~:)(Refl),TestEquality(..))
 import Foreign.Ptr (Ptr)
 import GHC.Exts (dataToTag#,State#,Int#,Proxy#,Addr#,ByteArray#,MutableByteArray#)
 import GHC.Int (Int(..))
+import Unsafe.Coerce (unsafeCoerce)
 
 import qualified Data.Aeson.Encoding as Aeson
 import qualified Data.Aeson.Encoding.Internal as AEI
@@ -152,17 +153,36 @@ import qualified Data.Map.Strict as M
 import qualified Data.Semigroup as SG
 import qualified Data.Traversable as TRV
 import qualified Data.Vector as V
+import qualified GHC.Exts as Exts
 import qualified Text.Read as R
 import qualified Web.PathPieces as PP
 
 -- | Hide a type parameter.
-data Exists (f :: k -> Type) = forall a. Exists !(f a)
+newtype Exists :: (k -> Type) -> Type where
+  UnsafeExists :: Exts.Any -> Exists f
+
+{-# COMPLETE Exists #-}
+pattern Exists :: f k -> Exists f
+pattern Exists f <- UnsafeExists (unsafeCoerce -> f) where
+  Exists f = UnsafeExists (unsafeCoerce f)
 
 -- | Hide two type parameters.
-data Exists2 (f :: k -> j -> Type) = forall a b. Exists2 !(f a b)
+newtype Exists2 :: (k -> j -> Type) -> Type where
+  UnsafeExists2 :: Exts.Any -> Exists2 f
+
+{-# COMPLETE Exists2 #-}
+pattern Exists2 :: f k j -> Exists2 f
+pattern Exists2 f <- UnsafeExists2 (unsafeCoerce -> f) where
+  Exists2 f = UnsafeExists2 (unsafeCoerce f)
 
 -- | Hide three type parameters.
-data Exists3 (f :: k -> j -> l -> Type) = forall a b c. Exists3 !(f a b c)
+newtype Exists3 :: (k -> j -> l -> Type) -> Type where
+  UnsafeExists3 :: Exts.Any -> Exists3 f
+
+{-# COMPLETE Exists3 #-}
+pattern Exists3 :: f k j l -> Exists3 f
+pattern Exists3 f <- UnsafeExists3 (unsafeCoerce -> f) where
+  Exists3 f = UnsafeExists3 (unsafeCoerce f)
 
 -- | A pair in which the type of the second element can only
 --   be discovered by looking at the first element. The type
@@ -210,26 +230,26 @@ instance SemigroupForall f => SemigroupForall (ApplyForall f) where
 instance MonoidForall f => MonoidForall (ApplyForall f) where
   emptyForall = ApplyForall emptyForall
 
-newtype ApplyLifted f a = ApplyLifted { getApplyLifted :: f a }                         
+newtype ApplyLifted f a = ApplyLifted { getApplyLifted :: f a }
 
-instance (Semigroup1 f, Semigroup a) => Semigroup (ApplyLifted f a) where  
+instance (Semigroup1 f, Semigroup a) => Semigroup (ApplyLifted f a) where
   (<>) = append1
 
 instance (Monoid1 f, Monoid a) => Monoid (ApplyLifted f a) where
-  mempty = empty1 
+  mempty = empty1
   mappend = liftAppend mappend
 
 instance (Eq1 f, Eq a) => Eq (ApplyLifted f a) where
-  (==) = eq1 
+  (==) = eq1
 
 instance (Ord1 f, Ord a) => Ord (ApplyLifted f a) where
-  compare = compare1 
+  compare = compare1
 
-instance Semigroup1 f => Semigroup1 (ApplyLifted f) where  
-  liftAppend g (ApplyLifted a) (ApplyLifted b) = ApplyLifted (liftAppend g a b)                        
+instance Semigroup1 f => Semigroup1 (ApplyLifted f) where
+  liftAppend g (ApplyLifted a) (ApplyLifted b) = ApplyLifted (liftAppend g a b)
 
-instance Monoid1 f => Monoid1 (ApplyLifted f) where        
-  liftEmpty f = ApplyLifted (liftEmpty f)                                        
+instance Monoid1 f => Monoid1 (ApplyLifted f) where
+  liftEmpty f = ApplyLifted (liftEmpty f)
 
 instance Eq1 f => Eq1 (ApplyLifted f) where
   liftEq f (ApplyLifted a) (ApplyLifted b) = liftEq f a b
@@ -384,7 +404,7 @@ class ReadExists f where
 class EqForall2 f where
   eqForall2 :: f a b -> f a b -> Bool
 
-class EqForallPoly2 (f :: k -> j -> Type) where 
+class EqForallPoly2 (f :: k -> j -> Type) where
   eqForallPoly2 :: forall (a :: k) (b :: j) (c :: k) (d :: j). f a b -> f c d -> WitnessedEquality '(a,b) '(c,d)
 
 class HashableForall f where
@@ -495,10 +515,10 @@ instance ShowForall Proxy where
   showsPrecForall = showsPrec
 
 instance ReadExists Proxy where
-  readPrecExists = fmap Exists R.readPrec 
+  readPrecExists = fmap Exists R.readPrec
 
 instance SemigroupForall Proxy where
-  appendForall _ _ = Proxy 
+  appendForall _ _ = Proxy
 
 instance EqForall ((:~:) a) where
   eqForall Refl Refl = True
@@ -555,20 +575,20 @@ instance FromJSONExists f => FromJSON (Exists f) where
   parseJSON v = parseJSONExists v
 
 instance ShowForall f => Show (Exists f) where
-  showsPrec p (Exists a) = showParen 
-    (p >= 11) 
+  showsPrec p (Exists a) = showParen
+    (p >= 11)
     (showString "Exists " . showsPrecForall 11 a)
 
 instance ShowForall2 f => Show (Exists2 f) where
-  showsPrec p (Exists2 a) = showParen 
-    (p >= 11) 
+  showsPrec p (Exists2 a) = showParen
+    (p >= 11)
     (showString "Exists " . showsPrecForall2 11 a)
 
 instance ReadExists f => Read (Exists f) where
   readPrec = R.parens $ R.prec 10 $ do
     R.Ident "Exists" <- R.lexP
     R.step readPrecExists
-    
+
 instance EnumExists f => Enum (Exists f) where
   fromEnum = fromEnumExists
   toEnum = toEnumExists
@@ -607,8 +627,8 @@ instance (OrdForallPoly f, OrdForallPoly g) => OrdForallPoly (Product f g) where
     WitnessedOrderingEQ -> compareForallPoly g1 g2
 
 instance (ShowForall f, ShowForall g) => ShowForall (Product f g) where
-  showsPrecForall p (Pair f g) = showParen 
-    (p >= 11) 
+  showsPrecForall p (Pair f g) = showParen
+    (p >= 11)
     (showString "Pair " . showsPrecForall 11 f . showChar ' ' . showsPrecForall 11 g)
 
 instance (Ord1 f, OrdForeach g) => OrdForeach (Compose f g) where
@@ -800,12 +820,12 @@ unreifyList :: forall (as :: [k]) b. Unreify k
 unreifyList SingListNil b = b
 unreifyList (SingListCons s ss) b = unreify s (unreifyList ss b)
 
-instance (EqForeach f, EqSing k) => Eq (Some (f :: k -> Type)) where 
+instance (EqForeach f, EqSing k) => Eq (Some (f :: k -> Type)) where
   Some s1 v1 == Some s2 v2 = case eqSing s1 s2 of
     Just Refl -> eqForeach s1 v1 v2
     Nothing -> False
 
-instance (OrdForeach f, OrdSing k) => Ord (Some (f :: k -> Type)) where 
+instance (OrdForeach f, OrdSing k) => Ord (Some (f :: k -> Type)) where
   compare (Some s1 v1) (Some s2 v2) = case compareSing s1 s2 of
     WitnessedOrderingEQ -> compareForeach s1 v1 v2
     WitnessedOrderingLT -> LT
@@ -855,14 +875,14 @@ toJSONMapForeachKey s m = case toJSONKeyForeach of
   ToJSONKeyTextForall keyToText _ -> toJSON $ M.foldlWithKey'
     ( \hm key val -> HM.insert (keyToText (Pair s key)) (toJSONForeach s val) hm
     ) HM.empty m
-  ToJSONKeyValueForall keyToValue _ -> toJSON $ M.foldrWithKey' 
+  ToJSONKeyValueForall keyToValue _ -> toJSON $ M.foldrWithKey'
     ( \key val xs -> (keyToValue (Pair s key), toJSONForeach s val) : xs
     ) [] m
 
 -- | Parse a 'Map' whose key type is higher-kinded. This only creates a valid 'Map'
 --   if the 'OrdForeach' instance agrees with the 'Ord' instance.
 parseJSONMapForeachKey :: forall k (f :: k -> Type) (a :: k) v. (FromJSONKeyForeach f, OrdForeach f, Unreify k)
-  => (Aeson.Value -> Aeson.Parser v) 
+  => (Aeson.Value -> Aeson.Parser v)
   -> Sing a
   -> Aeson.Value
   -> Aeson.Parser (Map (f a) v)
@@ -917,19 +937,19 @@ strengthenEquality = \case
   False -> WitnessedEqualityUnequal
 
 -- | Given that we already know two types are equal, promote an 'Ordering'.
-strengthenOrdering :: Ordering -> WitnessedOrdering a a                                
+strengthenOrdering :: Ordering -> WitnessedOrdering a a
 strengthenOrdering = \case
-  LT -> WitnessedOrderingLT                                                    
-  EQ -> WitnessedOrderingEQ                                                              
-  GT -> WitnessedOrderingGT                                                                
+  LT -> WitnessedOrderingLT
+  EQ -> WitnessedOrderingEQ
+  GT -> WitnessedOrderingGT
 
 -- | Given that we already know two types to be unequal, promote an 'Ordering'.
 -- The argument should not be @EQ@.
-strengthenUnequalOrdering :: Ordering -> WitnessedOrdering a b                   
-strengthenUnequalOrdering = \case                                                  
-  LT -> WitnessedOrderingLT 
-  EQ -> WitnessedOrderingLT -- this case should not happen                                          
-  GT -> WitnessedOrderingGT               
+strengthenUnequalOrdering :: Ordering -> WitnessedOrdering a b
+strengthenUnequalOrdering = \case
+  LT -> WitnessedOrderingLT
+  EQ -> WitnessedOrderingLT -- this case should not happen
+  GT -> WitnessedOrderingGT
 
 instance (EqForallPoly f, ToSing f, EqForeach g) => Eq (DependentPair f g) where
   DependentPair a1 b1 == DependentPair a2 b2 = case eqForallPoly a1 a2 of
@@ -943,8 +963,8 @@ instance (OrdForallPoly f, ToSing f, OrdForeach g) => Ord (DependentPair f g) wh
     WitnessedOrderingEQ -> compareForeach (toSing a1) b1 b2
 
 instance (ShowForall f, ToSing f, ShowForeach g) => Show (DependentPair f g) where
-  showsPrec p (DependentPair a b) s = showParen 
-    (p >= 11) 
+  showsPrec p (DependentPair a b) s = showParen
+    (p >= 11)
     (showString "DependentPair " . showsPrecForall 11 a . showChar ' ' . showsPrecForeach (toSing a) 11 b)
     s
 
