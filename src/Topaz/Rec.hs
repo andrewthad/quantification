@@ -32,12 +32,12 @@ module Topaz.Rec
     -- * Conversion
   , fromSingList
   , toSingList
+  , fromList
   ) where
 
 import Prelude hiding (map,zipWith,foldMap,traverse)
 import Topaz.Types (Elem(..),type (++),Rec(..))
 import Data.Exists
-import Data.Semigroup (Semigroup)
 import qualified Data.Semigroup as SG
 
 -- | infix RecCons with proper fixity
@@ -126,3 +126,7 @@ toSingList :: Rec Sing as -> SingList as
 toSingList RecNil = SingListNil
 toSingList (RecCons r rs) = SingListCons r (toSingList rs)
 
+fromList :: [Exists f] -> Exists (Rec f)
+fromList [] = Exists RecNil
+fromList (Exists x : xs) = case fromList xs of
+  Exists ys -> Exists (RecCons x ys)

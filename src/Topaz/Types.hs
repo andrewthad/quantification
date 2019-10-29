@@ -34,7 +34,6 @@ import Data.Hashable (Hashable(..))
 import Data.Kind (Type)
 import Data.Monoid.Lifted (Semigroup1(..), Monoid1(..), append1)
 import Data.Proxy (Proxy(..))
-import Data.Semigroup (Semigroup)
 import Data.Type.Coercion
 import Data.Type.Equality
 import Foreign.Ptr (castPtr,plusPtr)
