@@ -24,6 +24,7 @@ module Topaz.Rec
   , zipWith
   , foldMap
   , foldMap1
+  , foldl'
     -- * Access
   , get
   , put
@@ -53,6 +54,17 @@ zipWith :: (forall x. f x -> g x -> h x) -> Rec f rs -> Rec g rs -> Rec h rs
 zipWith _ RecNil RecNil = RecNil
 zipWith f (RecCons a as) (RecCons b bs) =
   RecCons (f a b) (zipWith f as bs)
+
+-- | Strict left fold over the elements of a record.
+foldl' :: forall f a rs.
+     (forall x. a -> f x -> a) -- ^ Reduction
+  -> a -- ^ Initial accumulator
+  -> Rec f rs -- ^ Record
+  -> a
+foldl' g !a0 = go a0 where
+  go :: forall ss. a -> Rec f ss -> a
+  go !a RecNil = a
+  go !a (RecCons r rs) = go (g a r) rs
 
 -- | Map each element of a record to a monoid and combine the results.
 foldMap :: forall f m rs. Monoid m
