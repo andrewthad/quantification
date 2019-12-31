@@ -1,8 +1,0 @@
-resolver: lts-11.8
-packages:
-- '.'
-extra-deps:
-- git: 'https://github.com/andrewthad/primitive-indexed.git'
-  commit: '79cc56514b021998d7ab1b53b7688bcc10044551'
-flags: {}
-extra-package-dbs: []
