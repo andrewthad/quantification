@@ -1,6 +1,6 @@
 cabal-version: 2.0
 name: quantification
-version: 0.5.0
+version: 0.5.1
 synopsis: Rage against the quantification
 description: Data types and typeclasses to deal with universally and existentially quantified types
 homepage: https://github.com/andrewthad/quantification#readme
@@ -20,7 +20,7 @@ library
     Data.Monoid.Lifted
     Topaz.Rec
     Topaz.Types
-  build-depends: 
+  build-depends:
       base >= 4.11.1 && < 5
     , binary >= 0.8 && < 0.10
     , ghc-prim >= 0.5 && < 0.6
