@@ -739,7 +739,7 @@ class ShowSing k where
 instance EqSing a => EqSing [a] where
   eqSing = eqSingList
 
-eqSingList :: forall (a :: [k]) (b :: [k]). EqSing k => SingList a -> SingList b -> Maybe (a :~: b)
+eqSingList :: forall (k :: Type) (a :: [k]) (b :: [k]). EqSing k => SingList a -> SingList b -> Maybe (a :~: b)
 eqSingList SingListNil SingListNil = Just Refl
 eqSingList SingListNil (SingListCons _ _) = Nothing
 eqSingList (SingListCons _ _) SingListNil = Nothing
@@ -793,7 +793,7 @@ data SingMaybe :: Maybe k -> Type where
   SingMaybeJust :: Sing a -> SingMaybe ('Just a)
   SingMaybeNothing :: SingMaybe 'Nothing
 
-unreifyList :: forall (as :: [k]) b. Unreify k
+unreifyList :: forall (k :: Type) (as :: [k]) (b :: Type) . Unreify k
   => SingList as
   -> (Reify as => b)
   -> b
