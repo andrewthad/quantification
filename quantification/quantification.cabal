@@ -1,10 +1,10 @@
-cabal-version: 2.0
+cabal-version: 2.4
 name: quantification
 version: 0.6.0
 synopsis: Rage against the quantification
 description: Data types and typeclasses to deal with universally and existentially quantified types
 homepage: https://github.com/andrewthad/quantification#readme
-license: BSD3
+license: BSD-3-Clause
 license-file: LICENSE
 author: Andrew Martin
 maintainer: andrew.thaddeus@gmail.com
@@ -19,10 +19,10 @@ library
     Data.Exists
     Data.Monoid.Lifted
   build-depends:
-      base >= 4.11.1 && < 5
-    , binary >= 0.8 && < 0.10
+    , base >= 4.11.1 && < 5
+    , binary >= 0.8 && < 0.11
     , hashable >= 1.2 && < 1.4
-    , aeson >= 1.0 && < 1.5
+    , aeson >= 1.0 && < 1.6
     , text >= 1.0 && < 2.0
     , path-pieces >= 0.2 && < 0.3
     , vector >= 0.11 && < 0.13
