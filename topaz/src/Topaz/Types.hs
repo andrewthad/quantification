@@ -69,14 +69,14 @@ type family (as :: [k]) ++ (bs :: [k]) :: [k] where
   (a ': as) ++ bs = a ': (as ++ bs)
 infixr 5 ++
 
-data Rec :: (k -> Type) -> [k] -> Type where
+data Rec :: forall (k :: Type). (k -> Type) -> [k] -> Type where
   RecNil :: Rec f '[]
   RecCons :: f r -> Rec f rs -> Rec f (r ': rs)
 
 -- data BiRec :: (k -> Type) -> (j -> Type) -> [k] -> [j] -> Type where
 --   BiRec :: Rec f ks -> Rec g js -> BiRec f g ks js
 
-data NestRec :: (k -> Type) -> Nest k -> Type where
+data NestRec :: forall (k :: Type). (k -> Type) -> Nest k -> Type where
   NestRec :: Rec f rs -> Rec (NestRec f) ns -> NestRec f ('Nest ns rs)
 
 data Nest a = Nest [Nest a] [a]
