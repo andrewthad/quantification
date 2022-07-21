@@ -13,8 +13,7 @@ import Data.Hashable (Hashable)
 import Data.Map.Strict (Map)
 import Data.Monoid
 import Data.Proxy (Proxy(..))
-import Data.Semigroup (Semigroup)
-import Data.Functor.Const (Const(..))
+
 import qualified Data.Functor.Product as FP
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Map.Strict as M

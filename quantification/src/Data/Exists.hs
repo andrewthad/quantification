@@ -136,7 +136,6 @@ import Data.Kind (Type)
 import Data.Map.Strict (Map)
 import Data.Monoid.Lifted (Semigroup1(..),Monoid1(..),append1,empty1)
 import Data.Proxy (Proxy(..))
-import Data.Semigroup (Semigroup)
 import Data.Text (Text)
 import Data.Type.Equality ((:~:)(Refl),TestEquality(..))
 import Foreign.Ptr (Ptr)
@@ -145,6 +144,8 @@ import GHC.Int (Int(..))
 
 import qualified Data.Aeson.Encoding as Aeson
 import qualified Data.Aeson.Encoding.Internal as AEI
+import qualified Data.Aeson.Key as Key
+import qualified Data.Aeson.KeyMap as KM
 import qualified Data.Aeson.Types as Aeson
 import qualified Data.Binary as BN
 import qualified Data.HashMap.Strict as HM
@@ -184,10 +185,10 @@ data WitnessedOrdering (a :: k) (b :: k) where
   WitnessedOrderingGT :: WitnessedOrdering a b
 
 data ToJSONKeyFunctionForall f
-  = ToJSONKeyTextForall !(forall a. f a -> Text) !(forall a. f a -> Aeson.Encoding' Text)
+  = ToJSONKeyTextForall !(forall a. f a -> Aeson.Key) !(forall a. f a -> Aeson.Encoding' Aeson.Key)
   | ToJSONKeyValueForall !(forall a. f a -> Aeson.Value) !(forall a. f a -> Aeson.Encoding)
 data FromJSONKeyFunctionForeach f
-  = FromJSONKeyTextParserForeach !(forall a. Sing a -> Text -> Aeson.Parser (f a))
+  = FromJSONKeyTextParserForeach !(forall a. Sing a -> Aeson.Key -> Aeson.Parser (f a))
   | FromJSONKeyValueForeach !(forall a. Sing a -> Aeson.Value -> Aeson.Parser (f a))
 
 newtype ApplyForall f a = ApplyForall { getApplyForall :: f a }
@@ -217,7 +218,7 @@ instance (Semigroup1 f, Semigroup a) => Semigroup (ApplyLifted f a) where
 
 instance (Monoid1 f, Monoid a) => Monoid (ApplyLifted f a) where
   mempty = empty1 
-  mappend = liftAppend mappend
+  mappend = (<>)
 
 instance (Eq1 f, Eq a) => Eq (ApplyLifted f a) where
   (==) = eq1 
@@ -314,16 +315,16 @@ instance (ToJSONKeyForeach f, Reify a) => ToJSONKey (ApplyForeach f a) where
       (\xs -> Aeson.list (toEnc . Pair reify) (map getApplyForeach xs))
 
 -- this is always safe
-textEncodingToValueEncoding :: Aeson.Encoding' Text -> Aeson.Encoding' Aeson.Value
+textEncodingToValueEncoding :: Aeson.Encoding' Aeson.Key -> Aeson.Encoding' Aeson.Value
 textEncodingToValueEncoding = AEI.retagEncoding
 
 instance (FromJSONKeyForeach f, Reify a) => FromJSONKey (ApplyForeach f a) where
   fromJSONKey = case fromJSONKeyForeach of
-    FromJSONKeyTextParserForeach f -> FromJSONKeyTextParser (fmap ApplyForeach . f reify)
+    FromJSONKeyTextParserForeach f -> FromJSONKeyTextParser (fmap ApplyForeach . f reify . Key.fromText)
     FromJSONKeyValueForeach f -> FromJSONKeyValue (fmap ApplyForeach . f reify)
   fromJSONKeyList = case fromJSONKeyForeach of
     FromJSONKeyTextParserForeach f -> FromJSONKeyValue $ Aeson.withArray "ApplyForeach" $ \xs -> do
-      fmap V.toList (mapM (fmap ApplyForeach . Aeson.withText "ApplyForeach" (f reify)) xs)
+      fmap V.toList (mapM (fmap ApplyForeach . Aeson.withText "ApplyForeach" (f reify . Key.fromText)) xs)
     FromJSONKeyValueForeach f -> FromJSONKeyValue $ Aeson.withArray "ApplyForeach" $ \xs -> do
       fmap V.toList (mapM (fmap ApplyForeach . f reify) xs)
 
@@ -862,13 +863,13 @@ toJSONMapForeachKey s m = case toJSONKeyForeach of
 -- | Parse a 'Map' whose key type is higher-kinded. This only creates a valid 'Map'
 --   if the 'OrdForeach' instance agrees with the 'Ord' instance.
 parseJSONMapForeachKey :: forall k (f :: k -> Type) (a :: k) v. (FromJSONKeyForeach f, OrdForeach f, Unreify k)
-  => (Aeson.Value -> Aeson.Parser v) 
+  => (Aeson.Value -> Aeson.Parser v)
   -> Sing a
   -> Aeson.Value
   -> Aeson.Parser (Map (f a) v)
 parseJSONMapForeachKey valueParser s obj = unreify s $ case fromJSONKeyForeach of
   FromJSONKeyTextParserForeach f -> Aeson.withObject "Map k v"
-    ( fmap (M.mapKeysMonotonic getApplyForeach) . HM.foldrWithKey
+    ( fmap (M.mapKeysMonotonic getApplyForeach) . KM.foldrWithKey
       (\k v m -> M.insert
         <$> (coerce (f s k :: Aeson.Parser (f a)) :: Aeson.Parser (ApplyForeach f a)) <?> Key k
         <*> valueParser v <?> Key k

@@ -36,14 +36,16 @@ module Topaz.Rec
   , fromList
   ) where
 
+import Data.Exists
+import Data.Kind (Type)
 import Prelude hiding (map,zipWith,foldMap,traverse)
 import Topaz.Types (Elem(..),type (++),Rec(..))
-import Data.Exists
+
 import qualified Data.Semigroup as SG
 
 -- | infix RecCons with proper fixity
 infixr 7 <:
-(<:) :: forall a (f :: a -> *) (r :: a) (rs :: [a]).  f r -> Rec f rs -> Rec f (r : rs)
+(<:) :: forall a (f :: a -> Type) (r :: a) (rs :: [a]).  f r -> Rec f rs -> Rec f (r : rs)
 (<:) = RecCons
 
 map :: (forall x. f x -> g x) -> Rec f as -> Rec g as

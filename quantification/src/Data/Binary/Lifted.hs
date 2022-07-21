@@ -11,7 +11,6 @@ module Data.Binary.Lifted
 import Data.Binary (Get,Put,Binary,get,put)
 import Data.Functor.Compose (Compose(..))
 import Data.Word (Word8)
-import Data.Semigroup ((<>))
 
 class Binary1 f where
   liftPut :: (a -> Put) -> f a -> Put
