@@ -546,7 +546,7 @@ instance EqForallPoly2 f => Eq (Exists2 f) where
 instance OrdForallPoly f => Ord (Exists f) where
   compare (Exists a) (Exists b) = weakenOrdering (compareForallPoly a b)
 
-instance HashableForall f => Hashable (Exists f) where
+instance (EqForallPoly f, HashableForall f) => Hashable (Exists f) where
   hashWithSalt s (Exists a) = hashWithSaltForall s a
 
 instance ToJSONForall f => ToJSON (Exists f) where

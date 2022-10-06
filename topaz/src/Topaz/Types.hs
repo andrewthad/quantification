@@ -129,7 +129,7 @@ instance HashableForall f => HashableForall (Rec f) where
       RecNil -> s
       RecCons b bs -> go (hashWithSaltForall s b) bs
 
-instance HashableForall f => Hashable (Rec f as) where
+instance (EqForall f, HashableForall f) => Hashable (Rec f as) where
   hashWithSalt = hashWithSaltForall
 
 instance ShowForall f => ShowForall (Rec f) where
