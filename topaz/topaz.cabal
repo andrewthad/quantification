@@ -1,6 +1,6 @@
 cabal-version: 2.4
 name: topaz
-version: 0.6.0
+version: 0.7.0
 synopsis: Extensible records library
 description: Provides extensible records types built on top of the quantification library
 homepage: https://github.com/andrewthad/quantification#readme
@@ -20,10 +20,10 @@ library
   build-depends:
     , base >= 4.11.1 && < 5
     , binary >= 0.8 && < 0.11
-    , hashable >= 1.2 && < 1.5
+    , hashable >= 1.4 && < 1.5
     , aeson >= 2.1 && < 2.3
     , vector >= 0.11 && < 0.13
-    , quantification >= 0.6.0
+    , quantification >= 0.7.0
   default-language: Haskell2010
   ghc-options: -O2 -Wall
 
