@@ -123,7 +123,8 @@ import Control.Applicative (Const(..))
 import Data.Aeson (ToJSON(..),FromJSON(..))
 import Data.Aeson (ToJSONKey(..),FromJSONKey(..))
 import Data.Aeson (ToJSONKeyFunction(..),FromJSONKeyFunction(..))
-import Data.Aeson.Internal ((<?>),JSONPathElement(Key,Index))
+import Data.Aeson ((<?>))
+import Data.Aeson.Types (JSONPathElement(Key,Index))
 import Data.Binary (Get,Put,Binary)
 import Data.Binary.Lifted (Binary1(..))
 import Data.Coerce (coerce)
@@ -619,13 +620,13 @@ instance (Semigroup1 f, SemigroupForall g) => SemigroupForall (Compose f g) wher
   appendForall (Compose x) (Compose y) = Compose (liftAppend appendForall x y)
 
 instance (Aeson.ToJSON1 f, ToJSONForall g) => ToJSONForall (Compose f g) where
-  toJSONForall (Compose x) = Aeson.liftToJSON toJSONForall (Aeson.toJSON . map toJSONForall) x
+  toJSONForall (Compose x) = Aeson.liftToJSON (\_ -> False) toJSONForall (Aeson.toJSON . map toJSONForall) x
 
 instance (Aeson.ToJSON1 f, ToJSONForeach g) => ToJSONForeach (Compose f g) where
-  toJSONForeach s (Compose x) = Aeson.liftToJSON (toJSONForeach s) (Aeson.toJSON . map (toJSONForeach s)) x
+  toJSONForeach s (Compose x) = Aeson.liftToJSON (\_ -> False) (toJSONForeach s) (Aeson.toJSON . map (toJSONForeach s)) x
 
 instance (Aeson.FromJSON1 f, FromJSONForeach g) => FromJSONForeach (Compose f g) where
-  parseJSONForeach s = fmap Compose . Aeson.liftParseJSON
+  parseJSONForeach s = fmap Compose . Aeson.liftParseJSON Nothing
     (parseJSONForeach s)
     (Aeson.withArray "Compose" (fmap V.toList . V.mapM (parseJSONForeach s)))
 
@@ -832,7 +833,7 @@ class FromJSONSing k where
   parseJSONSing :: Aeson.Value -> Aeson.Parser (Exists (Sing :: k -> Type))
 
 instance (Aeson.FromJSON1 f, FromJSONForall g) => FromJSONForall (Compose f g) where
-  parseJSONForall s = fmap Compose . Aeson.liftParseJSON
+  parseJSONForall s = fmap Compose . Aeson.liftParseJSON Nothing
       (parseJSONForall s)
           (Aeson.withArray "Compose" (fmap V.toList . V.mapM (parseJSONForall s)))
 
