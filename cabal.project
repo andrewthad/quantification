@@ -1,2 +1,3 @@
 packages: ./quantification
+          ./quantification-aeson
           ./topaz
