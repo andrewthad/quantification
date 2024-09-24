@@ -9,8 +9,6 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-{-# OPTIONS_GHC -Wall -Werror #-}
-
 module Topaz.Types
   ( Elem(..)
   , Rec(..)
@@ -29,7 +27,6 @@ module Topaz.Types
 
 import Control.Applicative (liftA2)
 import Data.Exists
-import Data.Foldable (foldrM)
 import Data.Hashable (Hashable(..))
 import Data.Kind (Type)
 import Data.Monoid.Lifted (Semigroup1(..), Monoid1(..), append1)
@@ -39,10 +36,7 @@ import Data.Type.Equality
 import Foreign.Ptr (castPtr,plusPtr)
 import Foreign.Storable (Storable(..))
 
-import qualified Data.Aeson as AE
-import qualified Data.Aeson.Types as AET
 import qualified Data.Semigroup as SG
-import qualified Data.Vector as V
 
 data Nat = Succ Nat | Zero
 
@@ -204,33 +198,6 @@ instance MonoidForeach f => MonoidForeach (Rec f) where
 instance SemigroupForall f => SemigroupForall (Rec f) where
   appendForall = recZipWith appendForall
 
-instance ToJSONForall f => AE.ToJSON (Rec f as) where
-  toJSON = toJSONForall
-
-instance ToJSONForall f => ToJSONForall (Rec f) where
-  toJSONForall = AE.toJSON . go
-    where
-    go :: forall g xs. ToJSONForall g => Rec g xs -> [AE.Value]
-    go RecNil = []
-    go (RecCons x xs) = toJSONForall x : go xs
-
-instance (FromJSONForeach f, Reify as) => AE.FromJSON (Rec f as) where
-  parseJSON = parseJSONForeach reify
-
-instance FromJSONForeach f => FromJSONForeach (Rec f) where
-  parseJSONForeach s0 = AE.withArray "Rec" $ \vs -> do
-    let go :: SingList as -> Int -> AET.Parser (Rec f as)
-        go SingListNil !ix = if V.length vs == ix
-          then return RecNil
-          else fail "too many elements in array"
-        go (SingListCons s ss) !ix = if ix < V.length vs
-          then do
-            r <- parseJSONForeach s (vs V.! ix)
-            rs <- go ss (ix + 1)
-            return (RecCons r rs)
-          else fail "not enough elements in array"
-    go s0 0
-
 instance StorableForeach f => StorableForeach (Rec f) where
   sizeOfForeach _ SingListNil = 0
   sizeOfForeach _ (SingListCons s ss) =
@@ -259,15 +226,6 @@ instance BinaryForeach f => BinaryForeach (Rec f) where
   getForeach SingListNil = return RecNil
   getForeach (SingListCons s ss) =
     liftA2 RecCons (getForeach s) (getForeach ss)
-
-instance FromJSONExists f => FromJSONExists (Rec f) where
-  parseJSONExists = AE.withArray "Rec" $ \vs -> 
-    foldrM go (Exists RecNil) vs
-    where
-    go :: forall g. FromJSONExists g => AE.Value -> Exists (Rec g) -> AET.Parser (Exists (Rec g))
-    go v (Exists rs) = do
-      Exists r <- parseJSONExists v :: AET.Parser (Exists g)
-      return (Exists (RecCons r rs))
 
 recZipWith :: (forall x. f x -> g x -> h x) -> Rec f rs -> Rec g rs -> Rec h rs
 recZipWith _ RecNil RecNil = RecNil
