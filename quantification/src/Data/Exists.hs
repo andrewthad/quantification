@@ -113,7 +113,8 @@ import Data.Proxy (Proxy(..))
 import Data.Text (Text)
 import Data.Type.Equality ((:~:)(Refl),TestEquality(..))
 import Foreign.Ptr (Ptr)
-import GHC.Exts (dataToTag#,State#,Int#,Proxy#,Addr#,ByteArray#,MutableByteArray#)
+import GHC.Exts (State#,Int#,Proxy#,Addr#,ByteArray#,MutableByteArray#)
+import GHC.Magic (DataToTag(..))
 import GHC.Int (Int(..))
 
 import qualified Data.Binary as BN
@@ -517,7 +518,7 @@ instance (OrdForall f, OrdForall g) => OrdForall (Sum f g) where
   compareForall (InR _) (InL _) = GT
   compareForall (InL _) (InR _) = LT
 
-defaultCompareForallPoly :: (TestEquality f, OrdForall f) => f a -> f b -> Ordering
+defaultCompareForallPoly :: (TestEquality f, OrdForall f, DataToTag (f a), DataToTag (f b)) => f a -> f b -> Ordering
 defaultCompareForallPoly a b = case testEquality a b of
   Nothing -> compare (getTagBox a) (getTagBox b)
   Just Refl -> compareForall a b
@@ -527,7 +528,7 @@ defaultEqForallPoly x y = case testEquality x y of
   Nothing -> WitnessedEqualityUnequal
   Just Refl -> if eqForall x y then WitnessedEqualityEqual else WitnessedEqualityUnequal
 
-getTagBox :: a -> Int
+getTagBox :: DataToTag a => a -> Int
 getTagBox !x = I# (dataToTag# x)
 {-# INLINE getTagBox #-}
 
