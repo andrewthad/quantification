@@ -25,7 +25,6 @@ module Topaz.Types
   , type (++)
   ) where
 
-import Control.Applicative (liftA2)
 import Data.Exists
 import Data.Hashable (Hashable(..))
 import Data.Kind (Type)

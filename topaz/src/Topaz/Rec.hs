@@ -38,7 +38,7 @@ module Topaz.Rec
 
 import Data.Exists
 import Data.Kind (Type)
-import Prelude hiding (map,zipWith,foldMap,traverse)
+import Prelude hiding (map,zipWith,foldMap,traverse,foldl')
 import Topaz.Types (Elem(..),type (++),Rec(..))
 
 import qualified Data.Semigroup as SG
